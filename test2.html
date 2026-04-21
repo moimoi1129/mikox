@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>毎日が権利日！ - プロトタイプ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Kaisei+Decol:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --sumi:       #fff0f8;
+    --sumi-mid:   #fde8f4;
+    --sumi-lt:    #faf0fb;
+    --sumi-panel: #fff4fa;
+    --sumi-line:  #f0c8e0;
+    --kin:        #e0347a;
+    --kin-lt:     #ff6faa;
+    --kin-pale:   #ffe0f0;
+    --kin-glow:   rgba(224,52,122,0.28);
+    --shu:        #d62828;
+    --shu-lt:     #ff4444;
+    --shu-pale:   #ffeaea;
+    --shu-glow:   rgba(214,40,40,0.3);
+    --ao:         #8b3fd4;
+    --ao-lt:      #b76eff;
+    --ryoku:      #22a06b;
+    --ryoku-lt:   #3dd68c;
+    --washi:      #2d1a2e;
+    --washi-dim:  #b090b8;
+    --washi-mid:  #8060a0;
+    --border:     #f0c8e0;
+    --border-dk:  #e0a8cc;
+  }
+
+  body {
+    width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
+    background: linear-gradient(135deg, #fce8f4 0%, #f0e4ff 100%);
+    font-family: 'Noto Serif JP', serif; font-size: 11px; color: var(--washi); overflow: hidden;
+  }
+
+  #game {
+    width: 800px; height: 480px; background: var(--sumi-panel); border: 1px solid var(--kin);
+    box-shadow: 0 0 0 1px #fce8f4, 0 0 30px rgba(224,52,122,0.12), 0 8px 40px rgba(160,80,160,0.18);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+
+  /* Header */
+  #hdr { height: 38px; background: linear-gradient(135deg, #ff6faa 0%, #e0347a 40%, #c020a0 100%); border-bottom: 2px solid #ff9fcc; display: flex; align-items: center; padding: 0 10px; gap: 8px; flex-shrink: 0; }
+  .hdr-logo { font-family: 'Kaisei Decol', serif; font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.08em; text-shadow: 0 1px 3px rgba(150,0,80,0.4); }
+  .hdr-logo em { color: #ffe0f0; font-style: normal; }
+  .hdr-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.3); }
+  .hdr-stat { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .hs-lbl { font-size: 7px; color: var(--washi-mid); letter-spacing: 0.12em; color: rgba(255,255,255,0.7); }
+  .hs-val { font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; color: #fff; line-height: 1; }
+  .hs-val.up { color: #ffddee; }
+  .hs-val.green { color: #bbffdd; }
+  .hdr-enjo { margin-left: auto; display: flex; align-items: center; gap: 5px; border: 1px solid rgba(255,100,100,0.7); padding: 2px 8px; border-radius: 2px; background: rgba(255,100,150,0.3); }
+  .ei { font-size: 11px; }
+  .et { font-size: 9px; color: #fff; letter-spacing: 0.04em; font-weight: bold; }
+
+  /* Layout */
+  #body { flex: 1; display: flex; overflow: hidden; }
+  #center { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .home-left { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 10px; }
+  .home-right { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid var(--sumi-line); }
+
+  /* Tabs */
+  #tabs { height: 26px; background: linear-gradient(180deg, #100e08 0%, #0d0b06 100%); border-bottom: 1px solid var(--kin); display: flex; align-items: flex-end; padding: 0 6px; gap: 1px; flex-shrink: 0; }
+  .tb { padding: 3px 8px; font-size: 9px; color: var(--washi-mid); cursor: pointer; border-top: 2px solid transparent; transition: all 0.12s; letter-spacing: 0.06em; }
+  .tb.on { color: var(--kin); background: var(--sumi-panel); border-top: 2px solid var(--kin); border-left: 1px solid var(--sumi-line); border-right: 1px solid var(--sumi-line); border-radius: 2px 2px 0 0; font-weight: 700; }
+
+  /* Commons */
+  .revenue-board { padding: 8px 10px 6px; background: linear-gradient(135deg, #ffe0f4 0%, #ffd0ee 100%); border-bottom: 2px solid var(--kin); border-radius: 6px; margin-bottom: 10px; text-align: center; }
+  .rev-label { font-size: 9px; color: var(--kin); letter-spacing: 0.14em; font-weight: 700; margin-bottom: 5px; }
+  .rev-money { font-family: 'Rajdhani', sans-serif; font-size: 48px; font-weight: 700; color: var(--kin); line-height: 1; text-shadow: 0 0 20px var(--kin-glow); }
+
+  .stock-cat-tabs { display: flex; flex-shrink: 0; background: var(--kin-pale); border-bottom: 2px solid var(--kin); border-radius: 4px 4px 0 0; height: 28px; }
+  .sct { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; border-bottom: 2px solid var(--kin); margin-bottom: -2px; gap: 5px; }
+  .sct-name { font-size: 9px; font-weight: 700; color: var(--kin); }
+  
+  .stock-list-wrap { background: #fff; border: 1px solid var(--sumi-line); border-top: none; border-radius: 0 0 4px 4px; padding: 8px; overflow-y: auto; }
+  .stock-card { background: #fff; border: 1px solid var(--sumi-line); border-radius: 5px; display: flex; align-items: center; padding: 8px; margin-bottom: 4px; transition: all 0.12s; }
+  .stock-card.cant-afford { opacity: 0.6; }
+  .stock-card.today { border-color: var(--shu-lt); box-shadow: 0 0 8px var(--shu-glow); background: var(--shu-pale); }
+  
+  .stock-left { flex: 1; }
+  .stock-code { font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700; color: var(--washi-mid); }
+  .stock-name { font-size: 11px; font-weight: 700; color: var(--washi); }
+  
+  .stock-buy-btn { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, var(--kin) 0%, #c020a0 100%); color: #fff; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer; min-width: 64px; }
+  .stock-buy-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .sbb-price { font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700; }
+  .sbb-label { font-size: 7px; }
+
+  /* Right Panel */
+  .enjo-panel { flex-shrink: 0; background: linear-gradient(135deg, #fff0f0 0%, #ffe0e0 100%); border-bottom: 2px solid var(--shu-lt); position: relative; overflow: hidden; padding: 10px; }
+  .enjo-panel.active { animation: enjo-bg 3s ease-in-out infinite; }
+  @keyframes enjo-bg { 0%,100%{ background: linear-gradient(135deg, #fff0f0 0%, #ffe0e0 100%); } 50%{ background: linear-gradient(135deg, #ffe8e8 0%, #ffd4d4 100%); } }
+  .enjo-row1 { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+  .enjo-fire { font-size: 14px; }
+  .enjo-panel.active .enjo-fire { animation: shake 0.35s infinite; }
+  @keyframes shake { 0%,100%{ transform:rotate(-8deg); } 50%{ transform:rotate(8deg); } }
+  .enjo-title { font-size: 10px; font-weight: 700; color: var(--shu); }
+  .enjo-badge { margin-left: auto; font-size: 7px; color: #fff; background: var(--shu-lt); padding: 1px 5px; border-radius: 2px; }
+  
+  .battle-log { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .blog-hdr { padding: 3px 9px; background: linear-gradient(135deg, var(--kin-pale) 0%, #f8e0ff 100%); border-bottom: 1px solid var(--sumi-line); font-size: 8px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .blog-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+  .blog-list::-webkit-scrollbar { width: 3px; }
+  .blog-list::-webkit-scrollbar-thumb { background: var(--sumi-line); border-radius: 2px; }
+  .blog-entry { display: flex; align-items: flex-start; gap: 5px; padding: 3px 5px; border-radius: 3px; flex-shrink: 0; }
+  .blog-entry.drop-n { background: #fff8fc; border-left: 2px solid #ddc0dd; }
+  .blog-entry.drop-ssr { background: linear-gradient(135deg, #fff8e0 0%, #fff0f8 100%); border-left: 2px solid var(--kin-lt); box-shadow: 0 1px 6px rgba(255,170,0,0.2); }
+  .blog-entry.mission-clear { background: #f0fff8; border-left: 2px solid var(--ryoku); }
+  .blog-entry.system { background: #f8f8fc; border-left: 2px solid #ccc; }
+  .blog-ts { font-family: 'Rajdhani', sans-serif; font-size: 8px; color: var(--washi-mid); min-width: 24px; padding-top: 1px; }
+  .blog-main { font-size: 9px; color: var(--washi); line-height: 1.3; }
+  .blog-sub { font-size: 7px; color: var(--washi-mid); margin-top: 1px; }
+
+  /* Misc */
+  .btn-ui { background: var(--kin); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 9px; }
+  .btn-ui:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-small { background: var(--sumi-lt); color: var(--washi-mid); border: 1px solid var(--border); padding: 4px; border-radius: 4px; font-size: 8px; cursor: pointer; }
+  
+  .enjo-prog-bg { height: 4px; background: rgba(200,50,50,0.12); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .enjo-prog-fill { height: 100%; background: linear-gradient(90deg, var(--shu) 0%, #ff6655 100%); border-radius: 2px; transition: width 1s linear; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <!-- Header -->
+  <div id="hdr">
+    <div class="hdr-logo">🧚 毎日が<em>権利日！</em></div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-stat">
+      <span class="hs-lbl">買付余力 (現金)</span>
+      <span class="hs-val up" id="ui-balance">¥0</span>
+    </div>
+    <div class="hdr-stat" style="margin-left: 10px;">
+      <span class="hs-lbl">資金拘束中</span>
+      <span class="hs-val" style="color:#ffcccc;" id="ui-locked">¥0</span>
+    </div>
+    <div class="hdr-stat" style="margin-left: 10px;">
+      <span class="hs-lbl">信用余力 (確保枠)</span>
+      <span class="hs-val" style="color:#bbffdd;" id="ui-credit">¥0</span>
+    </div>
+    <div class="hdr-enjo">
+      <span class="ei">🌸</span>
+      <span class="et" id="ui-month">ゲーム内: 3月 (春)</span>
+    </div>
+  </div>
+
+  <div id="body">
+    <!-- Center (Tabs & Content) -->
+    <div id="center">
+      <div id="tabs">
+        <div class="tb on" onclick="changeTab('market')" id="tab-market">市場 (取得)</div>
+        <div class="tb" onclick="changeTab('credit')" id="tab-credit">信用建玉 (祈祷中)</div>
+        <div class="tb" onclick="changeTab('hounou')" id="tab-hounou">現物奉納・放流</div>
+        <div class="tb" onclick="changeTab('life')" id="tab-life">育成・アイテム</div>
+        <div class="tb" onclick="changeTab('ranking')" id="tab-ranking">SNS</div>
+      </div>
+      <div class="home-left" id="main-content">
+        <!-- JS Render Target -->
+      </div>
+    </div>
+
+    <!-- Right (Release & Chat) -->
+    <div class="home-right">
+      <div id="ui-release-panel" class="enjo-panel">
+        <!-- JS Render Target -->
+      </div>
+      <div class="battle-log">
+        <div class="blog-hdr"><span className="blog-hdr-title">✦ グローバルチャット</span><span class="blog-hdr-live" style="font-size:7px; color:#fff; background:var(--kin); padding:1px 5px; border-radius:2px;">LIVE</span></div>
+        <div class="blog-list" id="ui-chat-logs">
+          <!-- JS Render Target -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// 1. マスターデータ
+// ==========================================
+const STOCKS = [
+  { code: '4661', name: 'オリエンタル鼠', yield: 'パークチケット', month: 3, cost: 500000, value: 10000, type: 'travel', ico: '🎟️' },
+  { code: '9843', name: 'ニトール', yield: '買物割引券', month: 2, cost: 200000, value: 6000, type: 'other', ico: '🛏️' },
+  { code: '8267', name: 'アイオン', yield: 'オーナーズC', month: 2, cost: 350000, value: 7000, type: 'other', ico: '💳' },
+  { code: '7962', name: 'クイーンジム', yield: 'ファイルセット', month: 6, cost: 100000, value: 2000, type: 'other', ico: '📁' },
+  { code: '2702', name: 'マクドナル', yield: 'バーガー券', month: 6, cost: 600000, value: 6000, type: 'food', ico: '🍔' },
+  { code: '2914', name: '憎いよJT', yield: 'カップ麺詰合', month: 12, cost: 300000, value: 3000, type: 'food', ico: '🍜' },
+];
+
+const INITIAL_MESSAGES = [
+  { id: 1, type: 'system', ico: '🎮', text: 'サーバー接続完了。19時争奪戦に備えてください。', time: '18:50' },
+  { id: 2, type: 'system', ico: '💡', text: '本日は3月権利日です。3月銘柄の「奉納」を忘れずに！', time: '18:51' },
+];
+
+// ==========================================
+// 2. ゲームステート (状態管理)
+// ==========================================
+let state = {
+  activeTab: 'market',
+  currentMonth: 3,
+  balance: 1000000000,
+  creditPositions: [], // { stockCode, count }
+  spotPositions: [],   // { stockCode, count }
+  inventory: [],       // { stockCode, count }
+  family: { status: '独身', children: 0, accounts: 1, botAccuracy: 10 },
+  affection: 0,
+  botSettings: { isActive: false, targetRange: 'all', minYield: 1.0 },
+  releaseEvent: null, // { stock, amount, timeLeft, hasApplied }
+  chatLogs: [...INITIAL_MESSAGES]
+};
+
+// 派生ステータス計算
+function calcDerivedState() {
+  const lockedCost = state.spotPositions.reduce((sum, p) => {
+    const st = STOCKS.find(s => s.code === p.stockCode);
+    return sum + (st ? st.cost * p.count : 0);
+  }, 0);
+  const creditUsed = state.creditPositions.reduce((sum, p) => {
+    const st = STOCKS.find(s => s.code === p.stockCode);
+    return sum + (st ? st.cost * p.count : 0);
+  }, 0);
+  const maxCredit = (state.balance + lockedCost) * 3;
+  const availableCredit = maxCredit - creditUsed;
+  
+  return { lockedCost, availableCredit };
+}
+
+// ユーティリティ
+const getDiffMonth = (target, current) => { let diff = target - current; if (diff < 0) diff += 12; return diff; };
+const formatMoney = (num) => '¥' + num.toLocaleString();
+const getLogTime = () => { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+
+// ==========================================
+// 3. アクション (ロジック)
+// ==========================================
+function addChat(type, ico, text, sub = '') {
+  state.chatLogs.push({ id: Date.now(), type, ico, text, sub, time: getLogTime() });
+  renderChat();
+}
+
+function changeTab(tabId) {
+  state.activeTab = tabId;
+  document.querySelectorAll('.tb').forEach(el => el.classList.remove('on'));
+  document.getElementById(`tab-${tabId}`).classList.add('on');
+  renderMain();
+}
+
+function toggleBot() {
+  state.botSettings.isActive = !state.botSettings.isActive;
+  renderMain();
+}
+
+function updateBotSetting(key, val) {
+  state.botSettings[key] = val;
+}
+
+// 信用余力で手動確保
+function buyCredit(code) {
+  const stock = STOCKS.find(s => s.code === code);
+  const { availableCredit } = calcDerivedState();
+  if (availableCredit < stock.cost) return;
+  
+  const exist = state.creditPositions.find(p => p.stockCode === code);
+  if (exist) exist.count += 1;
+  else state.creditPositions.push({ stockCode: code, count: 1 });
+  
+  addChat('success', '💼', `${stock.name} を信用枠で確保しました。`);
+  renderAll();
+}
+
+// 数量調整UIヘルパー
+function changeQty(type, index, delta, max) {
+  const el = document.getElementById(`qty-${type}-${index}`);
+  let current = parseInt(el.innerText);
+  let next = current + delta;
+  if (next < 1) next = 1;
+  if (next > max) next = max;
+  el.innerText = next;
+}
+function setMaxQty(type, index, max) {
+  document.getElementById(`qty-${type}-${index}`).innerText = max;
+}
+
+// 現引き (信用 -> 現物)
+function executeGenbiki(index) {
+  const item = state.creditPositions[index];
+  const stock = STOCKS.find(s => s.code === item.stockCode);
+  const qty = parseInt(document.getElementById(`qty-credit-${index}`).innerText);
+  
+  if (qty > item.count || state.balance < stock.cost * qty) return;
+  
+  state.balance -= stock.cost * qty;
+  item.count -= qty;
+  if (item.count <= 0) state.creditPositions.splice(index, 1);
+  
+  const exist = state.spotPositions.find(p => p.stockCode === stock.code);
+  if (exist) exist.count += qty;
+  else state.spotPositions.push({ stockCode: stock.code, count: qty });
+  
+  addChat('system', '🏦', `${stock.name} x${qty} を現引きしました。(資金拘束)`);
+  renderAll();
+}
+
+// 信用取消
+function cancelCredit(index) {
+  const item = state.creditPositions[index];
+  const qty = parseInt(document.getElementById(`qty-credit-${index}`).innerText);
+  item.count -= qty;
+  if (item.count <= 0) state.creditPositions.splice(index, 1);
+  addChat('system', '💨', `信用建玉を ${qty}口 取り消しました。`);
+  renderAll();
+}
+
+// 奉納 (現物 -> 資金解放 & 優待)
+function executeHounou(index, isSpecial = false) {
+  if (isSpecial && !confirm("特殊アイテムを消費して無理やり奉納しますか？(※モック)")) return;
+
+  const item = state.spotPositions[index];
+  const stock = STOCKS.find(s => s.code === item.stockCode);
+  const qty = parseInt(document.getElementById(`qty-spot-${index}`).innerText);
+  
+  state.balance += stock.cost * qty;
+  item.count -= qty;
+  if (item.count <= 0) state.spotPositions.splice(index, 1);
+  
+  const exist = state.inventory.find(p => p.stockCode === stock.code);
+  if (exist) exist.count += qty;
+  else state.inventory.push({ stockCode: stock.code, count: qty });
+  
+  addChat('alert', '✨', `【奉納完了】${stock.name} を現渡ししました！`, `資金解放 / ${stock.yield} 獲得`);
+  renderAll();
+}
+
+// 放流
+function releaseSpot(index) {
+  const item = state.spotPositions[index];
+  const stock = STOCKS.find(s => s.code === item.stockCode);
+  const qty = parseInt(document.getElementById(`qty-spot-${index}`).innerText);
+  
+  state.balance += stock.cost * qty;
+  item.count -= qty;
+  if (item.count <= 0) state.spotPositions.splice(index, 1);
+  
+  triggerMockRelease(stock, qty * 100);
+  addChat('alert', '🌊', `自分が ${stock.name} を ${qty*100}株 放流しました！`);
+  renderAll();
+}
+
+// 巫女に貢ぐ
+function giveGift(index) {
+  const item = state.inventory[index];
+  item.count -= 1;
+  if (item.count <= 0) state.inventory.splice(index, 1);
+  
+  state.affection = Math.min(100, state.affection + 25);
+  addChat('system', '🎁', `巫女に優待をプレゼント！好感度UP`);
+  
+  if (state.affection >= 100) {
+    if (state.family.status === '独身') {
+      state.family.status = '既婚'; state.family.accounts = 2; state.family.botAccuracy += 10;
+      addChat('success', '💍', `巫女と結婚しました！`, `口座数: 2 / bot精度アップ`);
+    } else {
+      state.family.children++; state.family.accounts++; state.family.botAccuracy += 5;
+      addChat('success', '🍼', `子どもが誕生しました！`, `口座数: ${state.family.accounts} / bot精度アップ`);
+    }
+    state.affection = 0;
+  }
+  renderAll();
+}
+
+// テスト用放流発生
+function triggerMockRelease(specificStock = null, specificAmount = null) {
+  if (state.releaseEvent) return;
+  const stock = specificStock || STOCKS[Math.floor(Math.random() * STOCKS.length)];
+  const amount = specificAmount || [100, 200, 300][Math.floor(Math.random() * 3)];
+  state.releaseEvent = { stock, amount, timeLeft: 30, hasApplied: false };
+  if (!specificStock) addChat('alert', '🚨', `ユーザー放流発生！`, `[${stock.code}] ${stock.name} ${amount}株`);
+  renderReleasePanel();
+}
+
+function applyRelease() {
+  if (!state.releaseEvent || state.releaseEvent.hasApplied) return;
+  state.releaseEvent.hasApplied = true;
+  addChat('system', '⚙️', `放流戦にエントリーしました。`);
+  renderReleasePanel();
+}
+
+function handleReleaseResult() {
+  const ev = state.releaseEvent;
+  state.releaseEvent = null;
+  if (!ev.hasApplied) {
+    addChat('system', '💨', `${ev.stock.name} の放流受付終了。`);
+  } else {
+    const winRate = 30 + state.family.botAccuracy;
+    if (Math.random() * 100 < winRate) {
+      addChat('success', '🎉', `放流戦に勝利！信用建玉を確保！`, ev.stock.name);
+      const exist = state.creditPositions.find(x => x.stockCode === ev.stock.code);
+      if (exist) exist.count += (ev.amount/100); else state.creditPositions.push({ stockCode: ev.stock.code, count: (ev.amount/100) });
+    } else {
+      addChat('system', '😭', `落選...「貴重な機会を...」`);
+    }
+  }
+  renderAll();
+}
+
+// ==========================================
+// 4. レンダー (DOM操作)
+// ==========================================
+function renderAll() {
+  renderHeader();
+  renderMain();
+  renderReleasePanel();
+  renderChat();
+}
+
+function renderHeader() {
+  const { lockedCost, availableCredit } = calcDerivedState();
+  document.getElementById('ui-balance').innerText = formatMoney(state.balance);
+  document.getElementById('ui-locked').innerText = formatMoney(lockedCost);
+  document.getElementById('ui-credit').innerText = formatMoney(availableCredit);
+}
+
+function renderChat() {
+  const list = document.getElementById('ui-chat-logs');
+  list.innerHTML = state.chatLogs.map(log => {
+    let cls = 'drop-n';
+    if (log.type === 'system') cls = 'system';
+    if (log.type === 'alert') cls = 'drop-ssr';
+    if (log.type === 'success') cls = 'mission-clear';
+    return `
+      <div class="blog-entry ${cls}">
+        <span class="blog-ts">${log.time}</span><span style="font-size:14px; margin:0 4px;">${log.ico}</span>
+        <div class="blog-body">
+          <div class="blog-main">${log.text}</div>
+          ${log.sub ? `<div class="blog-sub">${log.sub}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+function renderReleasePanel() {
+  const panel = document.getElementById('ui-release-panel');
+  if (!state.releaseEvent) {
+    panel.className = 'enjo-panel';
+    panel.innerHTML = `
+      <div class="enjo-row1"><span class="enjo-fire" style="filter:grayscale(1)">💤</span><span class="enjo-title" style="color:var(--washi-mid)">現在、放流はありません</span></div>
+      <div style="font-size:9px; color:var(--washi-mid)">19時バッチに向けて準備中...</div>
+    `;
+    return;
+  }
+  const ev = state.releaseEvent;
+  panel.className = 'enjo-panel active';
+  panel.innerHTML = `
+    <div class="enjo-row1"><span class="enjo-fire">🚨</span><span class="enjo-title">ユーザー放流発生！</span><span class="enjo-badge">LIVE</span></div>
+    <div style="font-size:10px; margin-top:5px; color:#aa3333;">[${ev.stock.code}] ${ev.stock.name} <br/><span style="color:var(--washi)">${ev.amount}株 放流</span></div>
+    <div class="enjo-prog-bg"><div class="enjo-prog-fill" style="width: ${(ev.timeLeft / 30) * 100}%"></div></div>
+    <div class="enjo-footer" style="margin-top:6px;">
+      <span style="font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:bold; color:var(--shu)">残り ${ev.timeLeft}秒</span>
+      <button class="btn-ui" onclick="applyRelease()" ${ev.hasApplied ? 'disabled' : ''}>${ev.hasApplied ? '申請済' : '即時申請！'}</button>
+    </div>
+  `;
+}
+
+function renderMain() {
+  const container = document.getElementById('main-content');
+  const { availableCredit } = calcDerivedState();
+  const sortedStocks = [...STOCKS].sort((a,b) => getDiffMonth(a.month, state.currentMonth) - getDiffMonth(b.month, state.currentMonth));
+
+  let html = '';
+
+  if (state.activeTab === 'market') {
+    html += `
+      <div class="revenue-board">
+        <div class="rev-label">19時バッチまで残り...</div>
+        <div class="rev-money" id="ui-clock">${new Date().toLocaleTimeString('ja-JP', {hour12:false})}</div>
+      </div>
+      
+      <!-- bot設定 -->
+      <div style="background:#fff; border:1px solid var(--kin); border-radius:6px; padding:10px; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid var(--sumi-line); padding-bottom:5px;">
+          <div style="font-size:11px; font-weight:bold; color:var(--kin)">🤖 bot自動収集モード (信用枠使用)</div>
+          <button onclick="toggleBot()" style="padding:4px 12px; border-radius:12px; border:none; font-weight:bold; cursor:pointer; background:${state.botSettings.isActive ? 'var(--ryoku)' : '#ccc'}; color:#fff;">
+            ${state.botSettings.isActive ? '稼働中 ON' : '停止中 OFF'}
+          </button>
+        </div>
+        <div style="display:flex; gap:15px; font-size:9px; color:var(--washi)">
+          <div>
+            <span style="color:var(--washi-mid); margin-right:5px;">対象月</span>
+            <select onchange="updateBotSetting('targetRange', this.value)" style="padding:2px; border:1px solid var(--sumi-line)">
+              <option value="thisMonth" ${state.botSettings.targetRange==='thisMonth'?'selected':''}>今月権利 (${state.currentMonth}月) のみ</option>
+              <option value="nextMonth" ${state.botSettings.targetRange==='nextMonth'?'selected':''}>来月権利まで</option>
+              <option value="all" ${state.botSettings.targetRange==='all'?'selected':''}>全月対象</option>
+            </select>
+          </div>
+          <div>
+            <span style="color:var(--washi-mid); margin-right:5px;">最低利回り</span>
+            <select onchange="updateBotSetting('minYield', parseFloat(this.value))" style="padding:2px; border:1px solid var(--sumi-line)">
+              <option value="0" ${state.botSettings.minYield===0?'selected':''}>0%以上</option>
+              <option value="1.0" ${state.botSettings.minYield===1.0?'selected':''}>1.0%以上</option>
+              <option value="2.0" ${state.botSettings.minYield===2.0?'selected':''}>2.0%以上</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 市場リスト -->
+      <div class="stock-cat-tabs"><div class="sct"><span style="font-size:14px;">💼</span><span class="sct-name">市場・手動確保（信用余力を使用）</span></div></div>
+      <div class="stock-list-wrap">
+        ${sortedStocks.map(stock => {
+          const diffMonth = getDiffMonth(stock.month, state.currentMonth);
+          const yPct = ((stock.value / stock.cost)*100).toFixed(1);
+          const isToday = diffMonth === 0;
+          const canBuy = availableCredit >= stock.cost;
+          return `
+            <div class="stock-card ${!canBuy ? 'cant-afford' : ''} ${isToday ? 'today' : ''}">
+              <div class="stock-left">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <span class="stock-code">[${stock.code}] ${stock.ico}</span>
+                  ${isToday ? `<span style="background:var(--shu-lt); color:#fff; padding:2px 5px; font-size:7px; border-radius:3px; font-weight:bold;">🔥 今月権利！</span>` 
+                            : `<span style="background:var(--sumi-lt); color:var(--washi-mid); padding:2px 5px; font-size:7px; border-radius:3px; border:1px solid var(--border);">あと ${diffMonth} ヶ月</span>`}
+                </div>
+                <div class="stock-name">${stock.name}</div>
+              </div>
+              <div style="width:60px; text-align:right; padding-right:10px;">
+                <div style="font-size:8px; color:var(--washi-mid);">利回り</div>
+                <div style="color:${yPct >= 2.0 ? 'var(--kin)' : 'var(--ryoku)'}; font-size:14px; font-family:'Rajdhani',sans-serif; font-weight:bold;">${yPct}<span style="font-size:8px">%</span></div>
+              </div>
+              <button class="stock-buy-btn" onclick="buyCredit('${stock.code}')" ${!canBuy ? 'disabled' : ''}>
+                <span class="sbb-price">¥${Math.floor(stock.cost/10000)}万</span>
+                <span class="sbb-label">${canBuy ? '信用確保' : '余力不足'}</span>
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } 
+  
+  else if (state.activeTab === 'credit') {
+    html += `
+      <div style="background:var(--sumi-lt); border:1px solid var(--kin); border-radius:6px; padding:10px; margin-bottom:15px; text-align:center;">
+        <div style="font-size:10px; color:var(--kin); font-weight:bold; margin-bottom:5px;">信用建玉（祈祷・現引き待ち）</div>
+        <div style="font-size:9px;">確保した信用建玉を現金（買付余力）で「現引き」して現物建玉にします。資金不足時は取消可能です。</div>
+      </div>
+      <div class="stock-cat-tabs"><div class="sct"><span style="font-size:14px;">🕒</span><span class="sct-name" style="color:var(--ao-lt)">確保済み 信用建玉</span></div></div>
+      <div class="stock-list-wrap" style="min-height:200px;">
+        ${state.creditPositions.length === 0 ? `<div style="text-align:center; padding:30px; font-size:10px; color:var(--washi-mid);">確保済みの信用建玉はありません。</div>` : ''}
+        ${state.creditPositions.map((item, idx) => {
+          const stock = STOCKS.find(s => s.code === item.stockCode);
+          const maxAfford = Math.floor(state.balance / stock.cost);
+          return `
+            <div class="stock-card" style="background:#fdf8ff;">
+              <div class="stock-left">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <span class="stock-code">[${stock.code}] ${stock.ico}</span>
+                  <span style="font-size:12px; font-weight:bold;">${stock.name}</span>
+                  <span style="font-size:10px; font-weight:bold; color:var(--washi-mid); background:#fff; padding:2px 6px; border-radius:10px; border:1px solid var(--border);">合計 x${item.count}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; background:#fff; padding:2px; border-radius:4px; border:1px solid var(--sumi-line); width:fit-content;">
+                  <button onclick="changeQty('credit', ${idx}, -1, ${item.count})" class="btn-small">-</button>
+                  <span id="qty-credit-${idx}" style="font-size:10px; width:24px; text-align:center; font-weight:bold;">${item.count}</span>
+                  <button onclick="changeQty('credit', ${idx}, 1, ${item.count})" class="btn-small">+</button>
+                  <button onclick="setMaxQty('credit', ${idx}, ${item.count})" style="font-size:8px; background:var(--kin-pale); border:none; padding:2px 4px; cursor:pointer; color:var(--kin);">全口</button>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px; width:80px;">
+                <button onclick="executeGenbiki(${idx})" class="btn-ui" style="background:var(--kin)">💰 現引き</button>
+                <button onclick="cancelCredit(${idx})" class="btn-small">取消 (返済)</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  else if (state.activeTab === 'hounou') {
+    html += `
+      <div style="background:var(--sumi-lt); border:1px solid var(--kin); border-radius:6px; padding:10px; margin-bottom:15px; text-align:center;">
+        <div style="font-size:10px; color:var(--kin); font-weight:bold; margin-bottom:5px;">現在 ${state.currentMonth}月 (奉納シーズン)</div>
+        <div style="font-size:9px;">現引き済みの建玉のうち、<strong>${state.currentMonth}月権利の銘柄</strong>を「奉納」し優待を獲得します。不要分は放流も可能。</div>
+      </div>
+      <div class="stock-cat-tabs"><div class="sct"><span style="font-size:14px;">📦</span><span class="sct-name">現物建玉（奉納・放流待ち）</span></div></div>
+      <div class="stock-list-wrap" style="min-height:200px;">
+        ${state.spotPositions.length === 0 ? `<div style="text-align:center; padding:30px; font-size:10px; color:var(--washi-mid);">現物建玉がありません。<br/>信用建玉タブから現引きしてください。</div>` : ''}
+        ${state.spotPositions.map((item, idx) => {
+          const stock = STOCKS.find(s => s.code === item.stockCode);
+          const isToday = stock.month === state.currentMonth;
+          return `
+            <div class="stock-card ${isToday ? 'today' : ''}" style="background:${isToday ? 'var(--shu-pale)' : '#f9f9f9'}">
+              <div class="stock-left">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <span class="stock-code">[${stock.code}] ${stock.ico}</span>
+                  <span style="font-size:12px; font-weight:bold;">${stock.name}</span>
+                  <span style="font-size:10px; font-weight:bold; color:var(--washi-mid); background:#fff; padding:2px 6px; border-radius:10px; border:1px solid var(--border);">現物 x${item.count}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; background:#fff; padding:2px; border-radius:4px; border:1px solid var(--sumi-line); width:fit-content;">
+                  <button onclick="changeQty('spot', ${idx}, -1, ${item.count})" class="btn-small">-</button>
+                  <span id="qty-spot-${idx}" style="font-size:10px; width:24px; text-align:center; font-weight:bold;">${item.count}</span>
+                  <button onclick="changeQty('spot', ${idx}, 1, ${item.count})" class="btn-small">+</button>
+                  <button onclick="setMaxQty('spot', ${idx}, ${item.count})" style="font-size:8px; background:var(--kin-pale); border:none; padding:2px 4px; cursor:pointer; color:var(--kin);">全口</button>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px; width:90px;">
+                ${isToday 
+                  ? `<button onclick="executeHounou(${idx}, false)" class="btn-ui" style="background:linear-gradient(135deg, var(--kin) 0%, #ff8c00 100%);">✨ 奉納する</button>` 
+                  : `<button onclick="executeHounou(${idx}, true)" class="btn-ui" style="background:var(--ao-lt);">🔮 特殊奉納</button>`}
+                <button onclick="releaseSpot(${idx})" class="btn-small" style="color:var(--shu); font-weight:bold;">🌊 放流する</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  else if (state.activeTab === 'life') {
+    html += `
+      <div style="display:flex; gap:10px; height:100%;">
+        <div style="width:200px; display:flex; flex-direction:column; border:1px solid var(--sumi-line); border-radius:6px; overflow:hidden;">
+          <div style="height:120px; background:var(--kin-pale); display:flex; align-items:center; justify-content:center; font-size:64px; position:relative;">
+            ${state.family.status === '独身' ? '👩🏻‍💼' : '👰🏻‍♀️'}
+            ${state.family.children > 0 ? `<div style="position:absolute; bottom:5px; right:5px; font-size:24px;">👶x${state.family.children}</div>` : ''}
+          </div>
+          <div style="background:#fff; padding:10px; flex:1;">
+            <div style="font-size:10px; font-weight:bold; margin-bottom:5px;">親愛度ステータス</div>
+            <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:bold; color:var(--kin); margin-bottom:3px;">
+              <span>好感度</span><span>${state.affection} / 100</span>
+            </div>
+            <div class="enjo-prog-bg" style="margin-bottom:10px;"><div class="enjo-prog-fill" style="width:${state.affection}%; background:linear-gradient(90deg, var(--kin-lt), var(--kin));"></div></div>
+            <div style="font-size:9px; color:var(--washi-mid);">ステータス: <strong>${state.family.status}</strong><br/>bot勝率補正: +${state.family.botAccuracy}%</div>
+          </div>
+        </div>
+        
+        <div style="flex:1; background:#fff; border:1px solid var(--sumi-line); border-radius:6px; display:flex; flex-direction:column;">
+          <div style="padding:8px; background:var(--sumi-lt); border-bottom:1px solid var(--sumi-line); font-size:10px; font-weight:bold;">🎁 獲得済優待 (アイテム)</div>
+          <div style="padding:5px; overflow-y:auto; flex:1; display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; align-content:start;">
+            ${state.inventory.length === 0 ? `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--washi-mid);">アイテムがありません。</div>` : ''}
+            ${state.inventory.map((item, idx) => {
+              const stock = STOCKS.find(s => s.code === item.stockCode);
+              return `
+                <div style="border:1px solid var(--border); border-top:2px solid var(--kin-lt); padding:8px 2px; text-align:center; background:var(--sumi-panel);">
+                  <div style="font-size:24px; margin-bottom:4px;">${stock.ico}</div>
+                  <div style="font-size:9px; font-weight:bold;">${stock.yield}</div>
+                  <div style="font-size:9px; color:var(--kin); margin-top:4px;">所持: ${item.count}</div>
+                  <button onclick="giveGift(${idx})" style="margin-top:5px; width:90%; padding:4px; background:var(--kin); color:#fff; border:none; border-radius:3px; font-size:8px; cursor:pointer;">貢ぐ ♡</button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  else if (state.activeTab === 'ranking') {
+    html += `
+      <div style="padding:20px; text-align:center;">
+        <div style="font-size:48px; margin-bottom:10px;">🏆</div>
+        <div style="font-size:14px; font-weight:bold; color:var(--kin); margin-bottom:5px;">SNSで拡散して承認欲求を満たそう！</div>
+        <button class="btn-ui" style="background:#1DA1F2; margin-bottom:10px; width:80%; padding:10px; border-radius:20px; font-size:11px;">「今期利回り15.2%！」をポスト</button>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+// ==========================================
+// 5. メインループ & 初期化
+// ==========================================
+function botTick() {
+  if (!state.botSettings.isActive) return;
+  const { availableCredit } = calcDerivedState();
+  const validStocks = STOCKS.filter(s => {
+    const y = (s.value / s.cost) * 100;
+    const mDiff = getDiffMonth(s.month, state.currentMonth);
+    if (y < state.botSettings.minYield) return false;
+    if (state.botSettings.targetRange === 'thisMonth' && mDiff !== 0) return false;
+    if (state.botSettings.targetRange === 'nextMonth' && mDiff > 1) return false;
+    if (s.cost > availableCredit) return false;
+    return true;
+  });
+
+  const catchRate = 0.1 + (state.family.botAccuracy / 100);
+  if (validStocks.length > 0 && Math.random() < catchRate) {
+    const s = validStocks[Math.floor(Math.random() * validStocks.length)];
+    const exist = state.creditPositions.find(x => x.stockCode === s.code);
+    if (exist) exist.count += 1; else state.creditPositions.push({ stockCode: s.code, count: 1 });
+    addChat('system', '🤖', `botが信用枠で ${s.name} を確保しました。`);
+    renderAll();
+  }
+}
+
+function processOffline() {
+  const lastTickStr = localStorage.getItem('lastTickTime');
+  if (!lastTickStr) return;
+  
+  const diffSec = Math.floor((Date.now() - parseInt(lastTickStr, 10)) / 1000);
+  if (state.botSettings.isActive && diffSec > 10) {
+    const { availableCredit } = calcDerivedState();
+    const ticks = Math.floor(diffSec / 5);
+    let simCount = 0;
+    let tempCredit = availableCredit;
+    const newAdds = {};
+
+    for (let i = 0; i < Math.min(ticks, 100); i++) {
+      const validStocks = STOCKS.filter(s => {
+        const y = (s.value / s.cost) * 100;
+        const mDiff = getDiffMonth(s.month, state.currentMonth);
+        if (y < state.botSettings.minYield) return false;
+        if (state.botSettings.targetRange === 'thisMonth' && mDiff !== 0) return false;
+        if (state.botSettings.targetRange === 'nextMonth' && mDiff > 1) return false;
+        if (s.cost > tempCredit) return false;
+        return true;
+      });
+      if (validStocks.length > 0 && Math.random() < 0.2) {
+        const s = validStocks[Math.floor(Math.random() * validStocks.length)];
+        tempCredit -= s.cost;
+        simCount++;
+        newAdds[s.code] = (newAdds[s.code] || 0) + 1;
+      }
+    }
+
+    if (simCount > 0) {
+      Object.keys(newAdds).forEach(code => {
+        const exist = state.creditPositions.find(x => x.stockCode === code);
+        if (exist) exist.count += newAdds[code];
+        else state.creditPositions.push({ stockCode: code, count: newAdds[code] });
+      });
+      alert(`【botレポート】\nオフライン中にbotが信用枠で ${simCount}口 の建玉を確保しました！\n信用建玉タブから「現引き」を行ってください。`);
+    }
+  }
+}
+
+// 初期化とループ開始
+processOffline();
+renderAll();
+
+setInterval(() => {
+  localStorage.setItem('lastTickTime', Date.now().toString());
+  
+  // 時計の更新
+  const clockEl = document.getElementById('ui-clock');
+  if(clockEl) clockEl.innerText = new Date().toLocaleTimeString('ja-JP', {hour12:false});
+  
+  // botは5秒に1回
+  if (new Date().getSeconds() % 5 === 0) botTick();
+
+  // 放流タイマー
+  if (state.releaseEvent && state.releaseEvent.timeLeft > 0) {
+    state.releaseEvent.timeLeft--;
+    if (state.releaseEvent.timeLeft <= 0) handleReleaseResult();
+    renderReleasePanel();
+  }
+}, 1000);
+
+</script>
+</body>
+</html>

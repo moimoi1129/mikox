@@ -1,0 +1,882 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+// --- モックデータ ---
+const STOCKS = [
+  { code: '4661', name: 'オリエンタル鼠', yield: 'パークチケット', month: 3, cost: 500000, value: 10000, type: 'travel', ico: '🎟️' },
+  { code: '9843', name: 'ニトール', yield: '買物割引券', month: 2, cost: 200000, value: 6000, type: 'other', ico: '🛏️' },
+  { code: '8267', name: 'アイオン', yield: 'オーナーズC', month: 2, cost: 350000, value: 7000, type: 'other', ico: '💳' },
+  { code: '7962', name: 'クイーンジム', yield: 'ファイルセット', month: 6, cost: 100000, value: 2000, type: 'other', ico: '📁' },
+  { code: '2702', name: 'マクドナル', yield: 'バーガー券', month: 6, cost: 600000, value: 6000, type: 'food', ico: '🍔' },
+  { code: '2914', name: '憎いよJT', yield: 'カップ麺詰合', month: 12, cost: 300000, value: 3000, type: 'food', ico: '🍜' },
+];
+
+const INITIAL_MESSAGES = [
+  { id: 1, type: 'system', ico: '🎮', text: 'サーバー接続完了。19時争奪戦に備えてください。', time: '18:50' },
+  { id: 2, type: 'system', ico: '💡', text: '本日は3月権利日です。3月銘柄の「奉納」を忘れずに！', time: '18:51' },
+];
+
+// --- ヘルパー関数 ---
+const getDiffMonth = (targetMonth, currentMonth) => {
+  let diff = targetMonth - currentMonth;
+  if (diff < 0) diff += 12;
+  return diff;
+};
+
+// ==========================================
+// 小コンポーネント：信用建玉カード (現引き・取消用)
+// ==========================================
+const CreditPositionCard = ({ item, index, maxAffordable, onGenbiki, onCancel }) => {
+  const [qty, setQty] = useState(item.count);
+  useEffect(() => { if (qty > item.count) setQty(item.count); }, [item.count, qty]);
+
+  const handleGenbiki = () => { if (qty > 0) onGenbiki(index, qty); };
+  const handleCancel = () => { if (qty > 0) onCancel(index, qty); };
+
+  return (
+    <div className="stock-card" style={{ marginBottom: '4px', padding: '8px', background: '#fdf8ff' }}>
+      <div className="stock-left" style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <div className="stock-code">[{item.stock.code}] {item.stock.ico}</div>
+          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{item.stock.name}</span>
+          <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--washi-mid)', background: '#fff', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--border)' }}>合計 x{item.count}</span>
+        </div>
+        <div style={{ fontSize: '9px', color: 'var(--washi-mid)', marginBottom: '4px' }}>
+          現引必要額: ¥{(item.stock.cost * qty).toLocaleString()}
+        </div>
+        {/* 数量指定UI */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px', borderRadius: '4px', width: 'fit-content', border: '1px solid var(--sumi-line)' }}>
+          <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width:'20px', background:'var(--sumi-lt)', border:'none', cursor:'pointer' }}>-</button>
+          <span style={{ fontSize: '10px', width: '24px', textAlign: 'center', fontWeight: 'bold' }}>{qty}</span>
+          <button onClick={() => setQty(Math.min(item.count, qty + 1))} style={{ width:'20px', background:'var(--sumi-lt)', border:'none', cursor:'pointer' }}>+</button>
+          <button onClick={() => setQty(item.count)} style={{ fontSize:'8px', background:'var(--kin-pale)', border:'none', padding:'2px 4px', cursor:'pointer', borderRadius:'2px', color:'var(--kin)' }}>全口</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '80px' }}>
+        <button 
+          onClick={handleGenbiki} 
+          disabled={maxAffordable < qty}
+          style={{ background: maxAffordable >= qty ? 'var(--kin)' : '#ccc', color: '#fff', border: 'none', padding: '6px 4px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', cursor: maxAffordable >= qty ? 'pointer' : 'not-allowed' }}
+        >
+          {maxAffordable >= qty ? '💰 現引き' : '資金不足'}
+        </button>
+        <button onClick={handleCancel} style={{ background: '#fff', color: 'var(--washi-mid)', border: '1px solid var(--border)', padding: '4px', borderRadius: '4px', fontSize: '8px', cursor: 'pointer' }}>
+          取消 (返済)
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 小コンポーネント：現物建玉カード (奉納・放流用)
+// ==========================================
+const SpotPositionCard = ({ item, index, currentMonth, onHounou, onRelease }) => {
+  const [qty, setQty] = useState(item.count);
+  useEffect(() => { if (qty > item.count) setQty(item.count); }, [item.count, qty]);
+
+  const isToday = item.stock.month === currentMonth;
+
+  return (
+    <div className={`stock-card ${isToday ? 'today' : ''}`} style={{ marginBottom: '4px', padding: '8px', background: isToday ? 'var(--shu-pale)' : '#f9f9f9' }}>
+      <div className="stock-left" style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <div className="stock-code">[{item.stock.code}] {item.stock.ico}</div>
+          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{item.stock.name}</span>
+          <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--washi-mid)', background: '#fff', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--border)' }}>現物 x{item.count}</span>
+        </div>
+        <div style={{ fontSize: '9px', color: 'var(--washi-mid)', marginBottom: '4px' }}>
+          拘束資金: ¥{(item.stock.cost * item.count).toLocaleString()}
+        </div>
+        {/* 数量指定UI */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px', borderRadius: '4px', width: 'fit-content', border: '1px solid var(--sumi-line)' }}>
+          <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width:'20px', background:'var(--sumi-lt)', border:'none', cursor:'pointer' }}>-</button>
+          <span style={{ fontSize: '10px', width: '24px', textAlign: 'center', fontWeight: 'bold' }}>{qty}</span>
+          <button onClick={() => setQty(Math.min(item.count, qty + 1))} style={{ width:'20px', background:'var(--sumi-lt)', border:'none', cursor:'pointer' }}>+</button>
+          <button onClick={() => setQty(item.count)} style={{ fontSize:'8px', background:'var(--kin-pale)', border:'none', padding:'2px 4px', cursor:'pointer', borderRadius:'2px', color:'var(--kin)' }}>全口</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '90px' }}>
+        {isToday ? (
+          <button onClick={() => onHounou(index, qty, false)} style={{ background: 'linear-gradient(135deg, var(--kin) 0%, #ff8c00 100%)', color: '#fff', border: 'none', padding: '6px 4px', borderRadius: '4px', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer', boxShadow: '0 2px 8px var(--kin-glow)' }}>
+            ✨ 奉納する
+          </button>
+        ) : (
+          <button onClick={() => onHounou(index, qty, true)} style={{ background: 'var(--ao-lt)', color: '#fff', border: 'none', padding: '6px 4px', borderRadius: '4px', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer' }}>
+            🔮 特殊奉納
+          </button>
+        )}
+        <button onClick={() => onRelease(index, qty)} style={{ background: 'var(--sumi-lt)', color: 'var(--shu)', border: '1px solid var(--border)', padding: '4px', borderRadius: '4px', fontSize: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          🌊 放流する
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
+// ==========================================
+// メインアプリケーション
+// ==========================================
+export default function App() {
+  // --- 状態管理 ---
+  const [time, setTime] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('market'); // market, credit, hounou, life, ranking
+  
+  const [currentMonth, setCurrentMonth] = useState(3);
+  
+  // プレイヤー資産
+  const [balance, setBalance] = useState(1000000000); // 現金 (買付余力)
+  const [creditPositions, setCreditPositions] = useState([]); // 信用建玉 { stock, count }
+  const [spotPositions, setSpotPositions] = useState([]); // 現物建玉 (旧portfolio) { stock, count }
+  const [inventory, setInventory] = useState([]); // 獲得優待
+  
+  // 育成
+  const [family, setFamily] = useState({ status: '独身', children: 0, accounts: 1, botAccuracy: 10 });
+  const [affection, setAffection] = useState(0); 
+  
+  // システム
+  const [botSettings, setBotSettings] = useState({ isActive: false, targetRange: 'all', minYield: 1.0 }); 
+  const [releaseEvent, setReleaseEvent] = useState(null); 
+  const [chatLogs, setChatLogs] = useState(INITIAL_MESSAGES);
+  
+  const chatBottomRef = useRef(null);
+
+  // --- 派生パラメータ計算 ---
+  const lockedCost = spotPositions.reduce((sum, p) => sum + p.stock.cost * p.count, 0);
+  const creditUsed = creditPositions.reduce((sum, p) => sum + p.stock.cost * p.count, 0);
+  const maxCredit = (balance + lockedCost) * 3;
+  const availableCredit = maxCredit - creditUsed;
+
+  const stateRef = useRef({ balance, availableCredit, currentMonth, family, botSettings });
+  useEffect(() => {
+    stateRef.current = { balance, availableCredit, currentMonth, family, botSettings };
+  }, [balance, availableCredit, currentMonth, family, botSettings]);
+
+  // --- ヘルパー ---
+  const addChat = (type, ico, text, sub = '') => {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    setChatLogs(prev => [...prev, { id: Date.now(), type, ico, text, sub, time: timeStr }]);
+  };
+
+  useEffect(() => {
+    if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [chatLogs]);
+
+  // --- メインループ (bot自動収集 & 時計) ---
+  useEffect(() => {
+    // オフライン進行 (信用建玉確保)
+    const lastTickStr = localStorage.getItem('lastTickTime');
+    if (lastTickStr) {
+      const diffSec = Math.floor((Date.now() - parseInt(lastTickStr, 10)) / 1000);
+      const { botSettings, availableCredit, currentMonth } = stateRef.current;
+      
+      if (botSettings.isActive && diffSec > 10) {
+        const ticks = Math.floor(diffSec / 5);
+        let simCount = 0;
+        let simCost = 0;
+        let tempCredit = availableCredit;
+        const newCreditAdds = {};
+
+        for (let i = 0; i < Math.min(ticks, 100); i++) {
+          const validStocks = STOCKS.filter(s => {
+            const y = (s.value / s.cost) * 100;
+            const mDiff = getDiffMonth(s.month, currentMonth);
+            if (y < botSettings.minYield) return false;
+            if (botSettings.targetRange === 'thisMonth' && mDiff !== 0) return false;
+            if (botSettings.targetRange === 'nextMonth' && mDiff > 1) return false;
+            if (s.cost > tempCredit) return false;
+            return true;
+          });
+
+          if (validStocks.length > 0 && Math.random() < 0.2) {
+            const s = validStocks[Math.floor(Math.random() * validStocks.length)];
+            tempCredit -= s.cost;
+            simCost += s.cost;
+            simCount++;
+            newCreditAdds[s.code] = (newCreditAdds[s.code] || 0) + 1;
+          }
+        }
+
+        if (simCount > 0) {
+          setCreditPositions(prev => {
+            const next = [...prev];
+            Object.keys(newCreditAdds).forEach(code => {
+              const st = STOCKS.find(x => x.code === code);
+              const exist = next.find(x => x.stock.code === code);
+              if (exist) exist.count += newCreditAdds[code];
+              else next.push({ stock: st, count: newCreditAdds[code] });
+            });
+            return next;
+          });
+          alert(`【botレポート】\nオフライン中にbotが信用枠で ${simCount}口 の建玉を確保しました！\n信用建玉タブから「現引き」を行ってください。`);
+        }
+      }
+    }
+
+    const timer = setInterval(() => {
+      setTime(new Date());
+      localStorage.setItem('lastTickTime', Date.now().toString());
+
+      // botオンライン取得 (5秒毎)
+      if (new Date().getSeconds() % 5 === 0) {
+        const { botSettings, availableCredit, currentMonth, family } = stateRef.current;
+        if (botSettings.isActive) {
+          const validStocks = STOCKS.filter(s => {
+            const y = (s.value / s.cost) * 100;
+            const mDiff = getDiffMonth(s.month, currentMonth);
+            if (y < botSettings.minYield) return false;
+            if (botSettings.targetRange === 'thisMonth' && mDiff !== 0) return false;
+            if (botSettings.targetRange === 'nextMonth' && mDiff > 1) return false;
+            if (s.cost > availableCredit) return false;
+            return true;
+          });
+
+          const catchRate = 0.1 + (family.botAccuracy / 100); 
+          if (validStocks.length > 0 && Math.random() < catchRate) {
+            const s = validStocks[Math.floor(Math.random() * validStocks.length)];
+            setCreditPositions(prev => {
+              const next = [...prev];
+              const exist = next.find(x => x.stock.code === s.code);
+              if (exist) exist.count += 1; else next.push({ stock: s, count: 1 });
+              return next;
+            });
+            addChat('system', '🤖', `botが信用枠で ${s.name} を確保しました。`);
+          }
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // --- 放流イベント ---
+  useEffect(() => {
+    if (!releaseEvent || releaseEvent.timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setReleaseEvent(prev => {
+        if (!prev) return null;
+        if (prev.timeLeft <= 1) {
+          handleReleaseResult(prev);
+          return null;
+        }
+        return { ...prev, timeLeft: prev.timeLeft - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [releaseEvent]);
+
+
+  // ==========================================
+  // アクション実装
+  // ==========================================
+
+  // 1. 市場で手動確保 (信用余力を使用)
+  const buyCredit = (stock) => {
+    if (availableCredit < stock.cost) return;
+    setCreditPositions(prev => {
+      const next = [...prev];
+      const exist = next.find(x => x.stock.code === stock.code);
+      if (exist) exist.count += 1; else next.push({ stock, count: 1 });
+      return next;
+    });
+    addChat('success', '💼', `${stock.name} を信用枠で確保しました。`);
+  };
+
+  // 2. 信用建玉を現引き (現金を使用し、現物建玉へ)
+  const genbiki = (index, countToProcess) => {
+    const item = creditPositions[index];
+    if (!item) return;
+    const totalCost = item.stock.cost * countToProcess;
+    if (balance < totalCost) return;
+
+    setBalance(prev => prev - totalCost);
+    
+    // 信用から減らす
+    setCreditPositions(prev => {
+      const next = [...prev];
+      next[index].count -= countToProcess;
+      if (next[index].count <= 0) next.splice(index, 1);
+      return next;
+    });
+
+    // 現物へ追加
+    setSpotPositions(prev => {
+      const next = [...prev];
+      const exist = next.find(x => x.stock.code === item.stock.code);
+      if (exist) exist.count += countToProcess; 
+      else next.push({ stock: item.stock, count: countToProcess });
+      return next;
+    });
+    addChat('system', '🏦', `${item.stock.name} x${countToProcess} を現引きしました。(資金拘束)`);
+  };
+
+  // 取消 (信用建玉の返済)
+  const cancelCredit = (index, countToProcess) => {
+    setCreditPositions(prev => {
+      const next = [...prev];
+      next[index].count -= countToProcess;
+      if (next[index].count <= 0) next.splice(index, 1);
+      return next;
+    });
+    addChat('system', '💨', `信用建玉を ${countToProcess}口 取り消しました。`);
+  };
+
+  // 3. 現物建玉の奉納 (資金解放 & 優待獲得)
+  const hounou = (index, countToProcess, isSpecial) => {
+    const item = spotPositions[index];
+    if (!item) return;
+
+    if (isSpecial) {
+      // 本来はアイテム消費判定を入れるがモック
+      const confirm = window.confirm("特殊アイテム「SSR優待秘宝」を消費して無理やり奉納しますか？(※モック動作)");
+      if (!confirm) return;
+    }
+
+    const totalCost = item.stock.cost * countToProcess;
+    
+    // 現金回復
+    setBalance(prev => prev + totalCost);
+
+    // インベントリ追加
+    setInventory(prev => {
+      const next = [...prev];
+      const exist = next.find(x => x.stock.code === item.stock.code);
+      if (exist) exist.count += countToProcess; 
+      else next.push({ stock: item.stock, count: countToProcess });
+      return next;
+    });
+
+    // 現物から削除
+    setSpotPositions(prev => {
+      const next = [...prev];
+      next[index].count -= countToProcess;
+      if (next[index].count <= 0) next.splice(index, 1);
+      return next;
+    });
+    
+    addChat('alert', '✨', `【奉納完了】${item.stock.name} を現渡ししました！`, `資金解放 / ${item.stock.yield} 獲得`);
+  };
+
+  // 4. 現物建玉の放流 (資金解放 & サーバー通知)
+  const releaseSpot = (index, countToProcess) => {
+    const item = spotPositions[index];
+    if (!item) return;
+    const totalCost = item.stock.cost * countToProcess;
+    
+    setBalance(prev => prev + totalCost);
+    
+    setSpotPositions(prev => {
+      const next = [...prev];
+      next[index].count -= countToProcess;
+      if (next[index].count <= 0) next.splice(index, 1);
+      return next;
+    });
+
+    // 自分の放流イベントとしてアラートを出す（モック）
+    triggerMockRelease(item.stock, countToProcess * 100);
+    addChat('alert', '🌊', `自分が ${item.stock.name} を ${countToProcess*100}株 放流しました！`);
+  };
+
+  // 放流イベントのモック
+  const triggerMockRelease = (specificStock = null, specificAmount = null) => {
+    if (releaseEvent) return;
+    const stock = specificStock || STOCKS[Math.floor(Math.random() * STOCKS.length)];
+    const amount = specificAmount || [100, 200, 300][Math.floor(Math.random() * 3)];
+    setReleaseEvent({ stock, amount, timeLeft: 30, hasApplied: false });
+    if (!specificStock) addChat('alert', '🚨', `ユーザー放流発生！`, `[${stock.code}] ${stock.name} ${amount}株`);
+  };
+
+  const handleReleaseResult = (event) => {
+    if (!event.hasApplied) {
+      addChat('system', '💨', `${event.stock.name} の放流受付終了。`);
+      return;
+    }
+    const winRate = 30 + family.botAccuracy;
+    if (Math.random() * 100 < winRate) {
+      addChat('success', '🎉', `放流戦に勝利！信用建玉を確保！`, event.stock.name);
+      setCreditPositions(prev => {
+        const next = [...prev];
+        const exist = next.find(x => x.stock.code === event.stock.code);
+        if (exist) exist.count += (event.amount/100); else next.push({ stock: event.stock, count: (event.amount/100) });
+        return next;
+      });
+    } else {
+      addChat('system', '😭', `落選...「貴重な機会を...」`);
+    }
+  };
+
+  // ==========================================
+  // UI 描画
+  // ==========================================
+  return (
+    <div className="app-container">
+      <style dangerouslySetInnerHTML={{ __html: globalCss }} />
+      
+      <div id="game">
+        <div id="hdr">
+          <div className="hdr-logo">🧚 毎日が<em>権利日！</em></div>
+          <div className="hdr-sep"></div>
+          <div className="hdr-stat">
+            <span className="hs-lbl">買付余力 (現金)</span>
+            <span className="hs-val up">¥{balance.toLocaleString()}</span>
+          </div>
+          <div className="hdr-stat" style={{marginLeft: '10px'}}>
+            <span className="hs-lbl">資金拘束中</span>
+            <span className="hs-val" style={{color:'#ffcccc'}}>¥{lockedCost.toLocaleString()}</span>
+          </div>
+          <div className="hdr-stat" style={{marginLeft: '10px'}}>
+            <span className="hs-lbl">信用余力 (確保枠)</span>
+            <span className="hs-val" style={{color:'#bbffdd'}}>¥{availableCredit.toLocaleString()}</span>
+          </div>
+          <div className="hdr-enjo" style={{background: 'rgba(255,100,150,0.3)', borderColor: 'rgba(255,100,150,0.6)', cursor: 'default'}}>
+            <span className="ei">🌸</span>
+            <span className="et">ゲーム内: {currentMonth}月 (春)</span>
+          </div>
+        </div>
+
+        <div id="body">
+          <div id="center">
+            <div id="tabs">
+              <div className={`tb ${activeTab === 'market' ? 'on' : ''}`} onClick={() => setActiveTab('market')}>市場 (取得)</div>
+              <div className={`tb ${activeTab === 'credit' ? 'on' : ''}`} onClick={() => setActiveTab('credit')}>信用建玉 (祈祷中)</div>
+              <div className={`tb ${activeTab === 'hounou' ? 'on' : ''}`} onClick={() => setActiveTab('hounou')}>現物奉納・放流</div>
+              <div className={`tb ${activeTab === 'life' ? 'on' : ''}`} onClick={() => setActiveTab('life')}>育成・アイテム</div>
+              <div className={`tb ${activeTab === 'ranking' ? 'on' : ''}`} onClick={() => setActiveTab('ranking')}>SNS</div>
+            </div>
+
+            <div className="sc on" style={{ flexDirection: 'row', background: 'var(--sumi-panel)' }}>
+              
+              <div className="home-left" style={{ padding: '0', overflowY: 'auto' }}>
+                
+                {/* === 市場 タブ === */}
+                {activeTab === 'market' && (
+                  <div style={{ padding: '10px' }}>
+                    
+                    {/* bot調整モード */}
+                    <div style={{ background: '#fff', border: '1px solid var(--kin)', borderRadius: '6px', padding: '10px', marginBottom: '15px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid var(--sumi-line)', paddingBottom: '5px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--kin)' }}>🤖 bot自動収集モード (信用枠使用)</div>
+                        <button 
+                          onClick={() => setBotSettings(s => ({...s, isActive: !s.isActive}))}
+                          style={{ padding: '4px 12px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: botSettings.isActive ? 'var(--ryoku)' : '#ccc', color: '#fff' }}
+                        >
+                          {botSettings.isActive ? '稼働中 ON' : '停止中 OFF'}
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '15px', fontSize: '9px', color: 'var(--washi)' }}>
+                        <div>
+                          <span style={{ color: 'var(--washi-mid)', marginRight: '5px' }}>対象月</span>
+                          <select value={botSettings.targetRange} onChange={(e) => setBotSettings(s => ({...s, targetRange: e.target.value}))} style={{ padding: '2px', border: '1px solid var(--sumi-line)' }}>
+                            <option value="thisMonth">今月権利 ({currentMonth}月) のみ</option>
+                            <option value="nextMonth">来月権利まで</option>
+                            <option value="all">全月対象</option>
+                          </select>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--washi-mid)', marginRight: '5px' }}>最低利回り</span>
+                          <select value={botSettings.minYield} onChange={(e) => setBotSettings(s => ({...s, minYield: parseFloat(e.target.value)}))} style={{ padding: '2px', border: '1px solid var(--sumi-line)' }}>
+                            <option value={0}>0%以上</option>
+                            <option value={1.0}>1.0%以上</option>
+                            <option value={2.0}>2.0%以上</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 市場リスト (手動確保) */}
+                    <div className="stock-cat-tabs" style={{ height: '28px', borderRadius: '4px 4px 0 0' }}>
+                      <div className="sct active" style={{ flexDirection: 'row', gap: '5px' }}>
+                        <span className="sct-ico">💼</span><span className="sct-name">市場・手動確保（信用余力を使用）</span>
+                      </div>
+                    </div>
+                    <div className="stock-list-wrap" style={{ background: '#fff', border: '1px solid var(--sumi-line)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '8px' }}>
+                      {[...STOCKS].sort((a, b) => getDiffMonth(a.month, currentMonth) - getDiffMonth(b.month, currentMonth)).map(stock => {
+                        const diffMonth = getDiffMonth(stock.month, currentMonth);
+                        const yieldPercent = ((stock.value / stock.cost) * 100).toFixed(1);
+                        const isToday = diffMonth === 0;
+                        const canBuy = availableCredit >= stock.cost;
+
+                        return (
+                          <div className={`stock-card ${!canBuy ? 'cant-afford' : ''} ${isToday ? 'today' : ''}`} key={stock.code} style={{ marginBottom: '4px', padding: '8px' }}>
+                            <div className="stock-left" style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                <div className="stock-code">[{stock.code}] {stock.ico}</div>
+                                {isToday ? (
+                                  <span style={{ background: 'var(--shu-lt)', color: '#fff', padding: '2px 5px', fontSize: '7px', borderRadius: '3px', fontWeight: 'bold' }}>🔥 今月権利！</span>
+                                ) : (
+                                  <span style={{ background: 'var(--sumi-lt)', color: 'var(--washi-mid)', padding: '2px 5px', fontSize: '7px', borderRadius: '3px', border: '1px solid var(--border)' }}>あと {diffMonth} ヶ月</span>
+                                )}
+                              </div>
+                              <div className="stock-name" style={{ fontSize: '12px' }}>{stock.name}</div>
+                            </div>
+                            <div className="stock-mid" style={{ width: '60px', textAlign: 'right', paddingRight: '10px' }}>
+                              <div className="stock-yield-lbl">利回り</div>
+                              <div className="stock-yield-val" style={{ color: yieldPercent >= 2.0 ? 'var(--kin)' : 'var(--ryoku)', fontSize: '14px' }}>{yieldPercent}<span style={{fontSize:'8px'}}>%</span></div>
+                            </div>
+                            <button 
+                              className={`stock-buy-btn ${!canBuy ? 'cant' : ''}`} 
+                              onClick={() => buyCredit(stock)} disabled={!canBuy}
+                            >
+                              <span className="sbb-price">¥{(stock.cost/10000).toFixed(0)}万</span>
+                              <span className="sbb-label">{canBuy ? '信用確保' : '余力不足'}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* === 信用建玉 タブ === */}
+                {activeTab === 'credit' && (
+                  <div style={{ padding: '10px' }}>
+                    <div style={{ background: 'var(--sumi-lt)', border: '1px solid var(--kin)', borderRadius: '6px', padding: '10px', marginBottom: '15px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--kin)', fontWeight: 'bold', marginBottom: '5px' }}>信用建玉（祈祷・現引き待ち）</div>
+                      <div style={{ fontSize: '9px', color: 'var(--washi)' }}>
+                        確保した信用建玉を、現金（買付余力）を使って「現引き」することで現物建玉となり奉納が可能になります。<br/>
+                        資金不足の場合は不要な建玉を取り消すこともできます。
+                      </div>
+                    </div>
+
+                    <div className="stock-cat-tabs" style={{ height: '28px', borderRadius: '4px 4px 0 0' }}>
+                      <div className="sct active" style={{ flexDirection: 'row', gap: '5px' }}>
+                        <span className="sct-ico">🕒</span><span className="sct-name" style={{color:'var(--ao-lt)'}}>確保済み 信用建玉 (現引き待ち)</span>
+                      </div>
+                    </div>
+                    <div className="stock-list-wrap" style={{ background: '#fff', border: '1px solid var(--sumi-line)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '8px', minHeight: '200px' }}>
+                      {creditPositions.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '30px', color: 'var(--washi-mid)', fontSize: '10px' }}>確保済みの信用建玉はありません。<br/>市場で確保するか、botに任せましょう。</div>
+                      ) : (
+                        creditPositions.map((item, idx) => (
+                          <CreditPositionCard 
+                            key={idx} item={item} index={idx} 
+                            maxAffordable={Math.floor(balance / item.stock.cost)}
+                            onGenbiki={genbiki} onCancel={cancelCredit} 
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* === 現物奉納 タブ === */}
+                {activeTab === 'hounou' && (
+                  <div style={{ padding: '10px' }}>
+                    <div style={{ background: 'var(--sumi-lt)', border: '1px solid var(--kin)', borderRadius: '6px', padding: '10px', marginBottom: '15px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--kin)', fontWeight: 'bold', marginBottom: '5px' }}>現在 {currentMonth}月 (奉納シーズン)</div>
+                      <div style={{ fontSize: '9px', color: 'var(--washi)' }}>
+                        現引き済みの建玉のうち、<strong>{currentMonth}月権利の銘柄</strong>を「奉納（現渡）」できます。<br/>
+                        奉納すると拘束資金が解放され、優待アイテムを獲得します。不要な分は放流も可能です。
+                      </div>
+                    </div>
+
+                    <div className="stock-cat-tabs" style={{ height: '28px', borderRadius: '4px 4px 0 0' }}>
+                      <div className="sct active" style={{ flexDirection: 'row', gap: '5px' }}>
+                        <span className="sct-ico">📦</span><span className="sct-name">現物建玉（奉納・放流待ち）</span>
+                      </div>
+                    </div>
+                    <div className="stock-list-wrap" style={{ background: '#fff', border: '1px solid var(--sumi-line)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '8px', minHeight: '200px' }}>
+                      {spotPositions.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '30px', color: 'var(--washi-mid)', fontSize: '10px' }}>現物建玉がありません。<br/>信用建玉タブから「現引き」してください。</div>
+                      ) : (
+                        spotPositions.map((item, idx) => (
+                          <SpotPositionCard 
+                            key={idx} item={item} index={idx} currentMonth={currentMonth}
+                            onHounou={hounou} onRelease={releaseSpot}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* === 育成・アイテム タブ === */}
+                {activeTab === 'life' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '10px', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ width: '200px', display: 'flex', flexDirection: 'column', border: '1px solid var(--sumi-line)', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ height: '120px', background: 'var(--kin-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '64px', position: 'relative' }}>
+                          {family.status === '独身' ? '👩🏻‍💼' : '👰🏻‍♀️'}
+                          {family.children > 0 && <div style={{ position: 'absolute', bottom: '5px', right: '5px', fontSize: '24px' }}>👶x{family.children}</div>}
+                        </div>
+                        <div style={{ background: '#fff', padding: '10px', flex: 1 }}>
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--washi)', marginBottom: '5px' }}>親愛度ステータス</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 'bold', color: 'var(--kin)', marginBottom: '3px' }}>
+                            <span>好感度</span><span>{affection} / 100</span>
+                          </div>
+                          <div className="enjo-prog-bg" style={{ background: 'var(--sumi-lt)', height: '6px', borderRadius: '3px', marginBottom: '10px' }}>
+                            <div className="enjo-prog-fill" style={{ width: `${affection}%`, background: 'linear-gradient(90deg, var(--kin-lt), var(--kin))' }}></div>
+                          </div>
+                          <div style={{ fontSize: '9px', color: 'var(--washi-mid)' }}>ステータス: <strong>{family.status}</strong><br/>bot勝率補正: +{family.botAccuracy}%</div>
+                        </div>
+                      </div>
+
+                      <div style={{ flex: 1, background: '#fff', border: '1px solid var(--sumi-line)', borderRadius: '6px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '8px', background: 'var(--sumi-lt)', borderBottom: '1px solid var(--sumi-line)', fontSize: '10px', fontWeight: 'bold', color: 'var(--washi)' }}>
+                          🎁 獲得済優待 (奉納により獲得)
+                        </div>
+                        <div style={{ padding: '5px', overflowY: 'auto', flex: 1 }}>
+                          {inventory.length === 0 ? (
+                             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--washi-mid)', fontSize: '9px' }}>アイテムがありません。<br/>現物建玉を奉納して獲得しましょう。</div>
+                          ) : (
+                            <div className="inv-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                              {inventory.map((item, idx) => (
+                                <div key={idx} className="ic ssr" style={{ padding: '8px 2px' }}>
+                                  <span className="ii" style={{fontSize:'24px', marginBottom:'4px'}}>{item.stock.ico}</span>
+                                  <div className="in" style={{fontSize:'9px', fontWeight:'bold', color:'var(--washi)'}}>{item.stock.yield}</div>
+                                  <div className="iq" style={{marginTop:'4px', color:'var(--kin)'}}>所持: {item.count}</div>
+                                  <button onClick={() => {
+                                    setInventory(p => { const n=[...p]; n[idx].count--; if(n[idx].count<=0) n.splice(idx,1); return n; });
+                                    setAffection(Math.min(100, affection + 25));
+                                    addChat('system', '🎁', `巫女に優待をプレゼント！好感度UP`);
+                                  }} style={{ marginTop: '5px', width: '90%', padding: '4px', background: 'var(--kin)', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '8px', cursor: 'pointer' }}>貢ぐ ♡</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* === SNS タブ === */}
+                {activeTab === 'ranking' && (
+                  <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '10px' }}>🏆</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--kin)', marginBottom: '5px' }}>SNSで拡散して承認欲求を満たそう！</div>
+                    <button style={{ background: '#1DA1F2', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px', width: '80%' }}>「今期利回り15.2%！」をポスト</button>
+                  </div>
+                )}
+
+              </div>
+
+              {/* === 右カラム (常に表示・放流＆チャット) === */}
+              <div className="home-right" style={{ width: '240px', borderLeft: '1px solid var(--sumi-line)' }}>
+                {releaseEvent ? (
+                  <div className="enjo-panel" style={{ borderBottomColor: 'var(--shu-lt)', padding: '10px' }}>
+                    <div className="enjo-row1"><span className="enjo-fire">🚨</span><span className="enjo-title">ユーザー放流発生！</span><span className="enjo-badge">LIVE</span></div>
+                    <div className="enjo-name" style={{ fontSize: '10px', marginTop: '5px' }}>[{releaseEvent.stock.code}] {releaseEvent.stock.name} <br/><span style={{color:'var(--washi)'}}>{releaseEvent.amount}株 放流</span></div>
+                    <div className="enjo-prog-bg" style={{ marginTop: '6px' }}><div className="enjo-prog-fill" style={{ width: `${(releaseEvent.timeLeft / 30) * 100}%` }}></div></div>
+                    <div className="enjo-footer" style={{ marginTop: '6px' }}>
+                      <span className="enjo-timer-txt">残り {releaseEvent.timeLeft}秒</span>
+                      <button className="enjo-btn" onClick={() => { setReleaseEvent(p=>({...p,hasApplied:true})); addChat('system','⚙️','放流戦エントリー済'); }} disabled={releaseEvent.hasApplied} style={{ opacity: releaseEvent.hasApplied ? 0.6 : 1, cursor: releaseEvent.hasApplied ? 'not-allowed' : 'pointer' }}>{releaseEvent.hasApplied ? '申請済' : '即時申請！'}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="enjo-panel" style={{ animation: 'none', background: 'var(--sumi-lt)', borderColor: 'var(--sumi-line)', padding: '10px' }}>
+                    <div className="enjo-row1"><span className="enjo-fire" style={{animation:'none', filter:'grayscale(1)'}}>💤</span><span className="enjo-title" style={{color:'var(--washi-mid)'}}>現在、放流はありません</span></div>
+                    <div className="enjo-name" style={{color:'var(--washi-mid)'}}>19時バッチに向けて準備中...</div>
+                  </div>
+                )}
+
+                <div className="battle-log">
+                  <div className="blog-hdr"><span className="blog-hdr-title">✦ グローバルチャット</span><span className="blog-hdr-live">LIVE</span></div>
+                  <div className="blog-list" style={{ padding: '6px' }}>
+                    {chatLogs.map(log => {
+                      let entryClass = 'drop-n';
+                      if (log.type === 'system') entryClass = 'system';
+                      if (log.type === 'alert') entryClass = 'drop-ssr';
+                      if (log.type === 'success') entryClass = 'mission-clear';
+                      return (
+                        <div key={log.id} className={`blog-entry ${entryClass}`}>
+                          <span className="blog-ts">{log.time}</span><span className="blog-ico" style={{fontSize:'14px'}}>{log.ico}</span>
+                          <div className="blog-body">
+                            <div className="blog-main" dangerouslySetInnerHTML={{__html: log.text}} />
+                            {log.sub && <div className="blog-sub">{log.sub}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={chatBottomRef} />
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === 注入用CSS ===
+const globalCss = `
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Kaisei+Decol:wght@400;700&family=Rajdhani:wght@500;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.app-container {
+  --sumi:       #fff0f8;
+  --sumi-mid:   #fde8f4;
+  --sumi-lt:    #faf0fb;
+  --sumi-panel: #fff4fa;
+  --sumi-line:  #f0c8e0;
+  --kin:        #e0347a;
+  --kin-lt:     #ff6faa;
+  --kin-pale:   #ffe0f0;
+  --kin-glow:   rgba(224,52,122,0.28);
+  --shu:        #d62828;
+  --shu-lt:     #ff4444;
+  --shu-pale:   #ffeaea;
+  --shu-glow:   rgba(214,40,40,0.3);
+  --ao:         #8b3fd4;
+  --ao-lt:      #b76eff;
+  --ryoku:      #22a06b;
+  --ryoku-lt:   #3dd68c;
+  --washi:      #2d1a2e;
+  --washi-dim:  #b090b8;
+  --washi-mid:  #8060a0;
+  --border:     #f0c8e0;
+  --border-dk:  #e0a8cc;
+
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #fce8f4 0%, #f0e4ff 100%);
+  font-family: 'Noto Serif JP', serif;
+  font-size: 11px;
+  color: var(--washi);
+  overflow: hidden;
+}
+
+#game {
+  width: 800px;
+  height: 480px;
+  background: var(--sumi-panel);
+  border: 1px solid var(--kin);
+  box-shadow: 0 0 0 1px #fce8f4, 0 0 30px rgba(224,52,122,0.12), 0 8px 40px rgba(160,80,160,0.18);
+  display: flex; flex-direction: column; overflow: hidden; position: relative;
+}
+
+#hdr {
+  height: 38px;
+  background: linear-gradient(135deg, #ff6faa 0%, #e0347a 40%, #c020a0 100%);
+  border-bottom: 2px solid #ff9fcc;
+  display: flex; align-items: center; padding: 0 10px; gap: 8px; flex-shrink: 0;
+}
+.hdr-logo {
+  font-family: 'Kaisei Decol', serif; font-size: 14px; font-weight: 700;
+  color: #fff; letter-spacing: 0.08em; text-shadow: 0 1px 3px rgba(150,0,80,0.4);
+}
+.hdr-logo em { color: #ffe0f0; font-style: normal; }
+.hdr-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.3); }
+.hdr-stat { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.hs-lbl { font-size: 7px; color: var(--washi-mid); letter-spacing: 0.12em; color: rgba(255,255,255,0.7); }
+.hs-val { font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; color: #fff; line-height: 1; }
+.hs-val.up { color: #ffddee; }
+.hs-val.green { color: #bbffdd; }
+.hdr-enjo {
+  margin-left: auto; display: flex; align-items: center; gap: 5px;
+  border: 1px solid rgba(255,100,100,0.7); padding: 2px 8px; border-radius: 2px;
+}
+.ei { font-size: 11px; }
+.et { font-size: 9px; color: #fff; letter-spacing: 0.04em; font-weight: bold; }
+.hdr-player {
+  font-size: 9px; color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3);
+  padding: 2px 8px; border-radius: 2px;
+}
+
+#body { flex: 1; display: flex; overflow: hidden; }
+#center { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#tabs {
+  height: 26px; background: linear-gradient(180deg, #100e08 0%, #0d0b06 100%);
+  border-bottom: 1px solid var(--kin); display: flex; align-items: flex-end; padding: 0 6px; gap: 1px; flex-shrink: 0;
+}
+.tb {
+  padding: 3px 8px; font-size: 9px; color: var(--washi-mid); cursor: pointer;
+  border-top: 2px solid transparent; transition: all 0.12s; letter-spacing: 0.06em;
+}
+.tb.on {
+  color: var(--kin); background: var(--sumi-panel); border-top: 2px solid var(--kin);
+  border-left: 1px solid var(--sumi-line); border-right: 1px solid var(--sumi-line);
+  border-radius: 2px 2px 0 0; font-weight: 700;
+}
+.sc { display: none; flex: 1; overflow: hidden; }
+.sc.on { display: flex; }
+
+.home-left { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.home-right { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+.revenue-board {
+  padding: 8px 10px 6px; background: linear-gradient(135deg, #ffe0f4 0%, #ffd0ee 100%);
+  border-bottom: 2px solid var(--kin);
+}
+.rev-top { display: flex; align-items: flex-end; gap: 12px; }
+.rev-label { font-size: 7px; color: var(--kin); letter-spacing: 0.14em; font-weight: 700; }
+.rev-money { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--kin); line-height: 1; }
+
+.enjo-panel {
+  flex-shrink: 0; background: linear-gradient(135deg, #fff0f0 0%, #ffe0e0 100%);
+  border-bottom: 2px solid var(--shu-lt); position: relative; overflow: hidden;
+  animation: enjo-bg 3s ease-in-out infinite;
+}
+@keyframes enjo-bg { 0%,100%{ background: linear-gradient(135deg, #fff0f0 0%, #ffe0e0 100%); } 50%{ background: linear-gradient(135deg, #ffe8e8 0%, #ffd4d4 100%); } }
+.enjo-row1 { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.enjo-fire { font-size: 14px; animation: shake 0.35s infinite; }
+@keyframes shake { 0%,100%{ transform:rotate(-8deg); } 50%{ transform:rotate(8deg); } }
+.enjo-title { font-size: 10px; font-weight: 700; color: var(--shu); }
+.enjo-badge { margin-left: auto; font-size: 7px; color: #fff; background: var(--shu-lt); padding: 1px 5px; border-radius: 2px; }
+.enjo-name { font-size: 9px; color: #aa3333; }
+.enjo-prog-bg { height: 4px; background: rgba(200,50,50,0.12); border-radius: 2px; overflow: hidden; }
+.enjo-prog-fill { height: 100%; background: linear-gradient(90deg, var(--shu) 0%, #ff6655 100%); border-radius: 2px; }
+.enjo-footer { display: flex; justify-content: space-between; align-items: center; }
+.enjo-timer-txt { font-family: 'Rajdhani', sans-serif; font-size: 11px; font-weight: 700; color: var(--shu); }
+.enjo-btn { font-size: 9px; color: #fff; background: var(--shu); border: none; padding: 3px 10px; border-radius: 2px; cursor: pointer; }
+
+.battle-log { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.blog-hdr {
+  padding: 3px 9px; background: linear-gradient(135deg, var(--kin-pale) 0%, #f8e0ff 100%);
+  border-bottom: 1px solid var(--sumi-line); font-size: 8px; font-weight: 700;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.blog-hdr-title { color: var(--kin); }
+.blog-hdr-live { font-size: 7px; color: #fff; background: var(--kin); padding: 1px 5px; border-radius: 2px; }
+.blog-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.blog-list::-webkit-scrollbar { width: 3px; }
+.blog-list::-webkit-scrollbar-thumb { background: var(--sumi-line); border-radius: 2px; }
+.blog-entry { display: flex; align-items: flex-start; gap: 5px; padding: 3px 5px; border-radius: 3px; flex-shrink: 0; }
+.blog-entry.drop-n { background: #fff8fc; border-left: 2px solid #ddc0dd; }
+.blog-entry.drop-ssr { background: linear-gradient(135deg, #fff8e0 0%, #fff0f8 100%); border-left: 2px solid var(--rar-ssr); box-shadow: 0 1px 6px rgba(255,170,0,0.2); }
+.blog-entry.mission-clear { background: #f0fff8; border-left: 2px solid var(--ryoku); }
+.blog-entry.system { background: #f8f8fc; border-left: 2px solid #ccc; }
+.blog-ts { font-family: 'Rajdhani', sans-serif; font-size: 8px; color: var(--washi-mid); min-width: 24px; padding-top: 1px; }
+.blog-body { flex: 1; min-width: 0; }
+.blog-main { font-size: 9px; color: var(--washi); line-height: 1.3; }
+.blog-sub { font-size: 7px; color: var(--washi-mid); margin-top: 1px; }
+
+.stock-cat-tabs { display: flex; flex-shrink: 0; background: var(--kin-pale); border-bottom: 2px solid var(--kin); }
+.sct { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.sct.active { background: #fff; border-bottom: 2px solid var(--kin); margin-bottom: -2px; }
+.sct-ico { font-size: 14px; }
+.sct-name { font-size: 9px; font-weight: 700; color: var(--kin); }
+.stock-list-wrap { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.stock-card { background: #fff; border: 1px solid var(--sumi-line); border-radius: 5px; display: flex; align-items: center; transition: all 0.12s; }
+.stock-card.cant-afford { opacity: 0.6; }
+
+.stock-card.today {
+  border-color: var(--shu-lt);
+  box-shadow: 0 0 8px var(--shu-glow);
+}
+@keyframes badge-blink { 0%,100%{ opacity:1; } 50%{ opacity:0.6; } }
+
+.stock-left { flex: 1; }
+.stock-code { font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700; color: var(--washi-mid); }
+.stock-name { font-size: 11px; font-weight: 700; color: var(--washi); }
+.stock-yield-lbl { font-size: 8px; color: var(--washi-mid); }
+.stock-buy-btn {
+  display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, var(--kin) 0%, #c020a0 100%);
+  color: #fff; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer; min-width: 64px;
+}
+.stock-buy-btn.cant { background: #ddd; cursor: not-allowed; }
+.sbb-price { font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700; }
+.sbb-label { font-size: 7px; }
+
+.inv-grid { display: grid; gap: 3px; }
+.ic { background: var(--bg-panel); border: 1px solid var(--border); text-align: center; cursor: pointer; position: relative; }
+`;

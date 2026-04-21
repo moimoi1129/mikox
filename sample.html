@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精霊クロス伝説</title>
+    <style>
+        /* === スクロールバー問題の解消 === */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* === ポップRPG・白×ピンクパレット === */
+        :root {
+            --sumi:       #fff0f8;
+            --sumi-mid:   #fde8f4;
+            --sumi-lt:    #faf0fb;
+            --sumi-line:  #f0c8e0;
+            --kin:        #e0347a;
+            --kin-lt:     #ff6faa;
+            --kin-pale:   #ffe0f0;
+            --text-main:  #4a2e3a;
+            --text-sub:   #8a6b78;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            overflow: hidden; /* 画面外のスクロールを禁止 */
+        }
+
+        #game-container {
+            width: 1200px;
+            height: 720px;
+            background-color: var(--sumi);
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            color: var(--text-main);
+            border-radius: 8px; /* 少しだけ丸みを持たせてリッチに */
+            overflow: hidden;
+        }
+
+        /* === ヘッダー === */
+        header {
+            height: 75px;
+            background-color: var(--sumi-mid);
+            border-bottom: 2px solid var(--sumi-line);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+
+        .resource-bar { display: flex; gap: 15px; }
+        .resource-item {
+            background: white;
+            border: 2px solid var(--kin-lt);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            box-shadow: 0 2px 0 var(--sumi-line); /* プチ立体感 */
+        }
+
+        /* === メインレイアウト === */
+        #main-area {
+            display: flex;
+            flex: 1;
+            height: calc(100% - 75px);
+        }
+
+        /* 左側：ナビゲーション */
+        #nav-menu {
+            width: 180px;
+            background-color: var(--sumi-lt);
+            border-right: 2px solid var(--sumi-line);
+            display: flex;
+            flex-direction: column;
+            padding: 15px 0;
+            overflow-y: auto; /* タブが増えた時のため */
+        }
+
+        .nav-btn {
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--kin);
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            transition: 0.1s;
+            border-left: 5px solid transparent;
+        }
+        .nav-btn:hover { background-color: var(--kin-pale); }
+        .nav-btn.active {
+            background-color: var(--kin-pale);
+            border-left: 5px solid var(--kin);
+        }
+
+        /* 中央：コンテンツ */
+        #content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .view-screen { display: none; height: 100%; }
+        .view-screen.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            border-bottom: 2px dashed var(--sumi-line);
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            color: var(--kin);
+        }
+
+        /* 右側：チャット＆ログ */
+        #chat-area {
+            width: 280px;
+            background-color: var(--sumi-mid);
+            border-left: 2px solid var(--sumi-line);
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            padding: 10px;
+            background: var(--kin-pale);
+            border-bottom: 1px solid var(--sumi-line);
+            font-weight: bold;
+            text-align: center;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .log-entry {
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid var(--kin-lt);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        /* 汎用パーツ */
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid var(--sumi-line);
+            margin-bottom: 20px;
+            box-shadow: 0 4px 0 var(--sumi-line); /* ポップな立体感 */
+        }
+        .btn-action {
+            background-color: var(--kin);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 4px 0 #a01a50; /* ボタンの厚み */
+            margin-top: 10px;
+        }
+        .btn-action:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #a01a50; /* 押したときの沈み込み */
+        }
+        .btn-action:disabled {
+            background-color: #ccc;
+            box-shadow: 0 4px 0 #999;
+            cursor: not-allowed;
+        }
+
+        /* === 株式リスト用追加スタイル === */
+        .stock-list-wrap { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .stock-card {
+            background: white; border: 2px solid var(--sumi-line); border-radius: 8px;
+            display: flex; align-items: center; padding: 12px; transition: all 0.12s;
+            box-shadow: 0 2px 0 var(--sumi-line); margin-bottom: 4px;
+        }
+        .stock-card.cant-afford { opacity: 0.6; }
+        .stock-card.today { border-color: #ff4444; background: #ffeaea; }
+        .stock-left { flex: 1; }
+        .stock-code { font-family: monospace; font-size: 12px; font-weight: bold; color: var(--text-sub); }
+        .stock-name { font-size: 16px; font-weight: bold; color: var(--text-main); margin-bottom: 5px; }
+        .stock-buy-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background-color: var(--kin); color: white; border: none; border-radius: 6px;
+            padding: 8px 12px; cursor: pointer; min-width: 80px; box-shadow: 0 3px 0 #a01a50;
+        }
+        .stock-buy-btn:disabled { background: #ccc; box-shadow: 0 3px 0 #999; cursor: not-allowed; }
+        .sbb-price { font-size: 14px; font-weight: bold; }
+        .sbb-label { font-size: 10px; }
+        .btn-small { background: var(--sumi-lt); color: var(--text-sub); border: 1px solid var(--sumi-line); padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        .qty-control { display: flex; align-items: center; gap: 5px; background: white; padding: 4px; border-radius: 4px; border: 1px solid var(--sumi-line); width: fit-content; }
+        .badge { font-size: 10px; font-weight: bold; color: var(--text-sub); background: white; padding: 2px 6px; border-radius: 10px; border: 1px solid var(--sumi-line); }
+
+        /* === 放流イベントパネル === */
+        #release-event-panel {
+            padding: 15px;
+            background: var(--sumi-lt);
+            border-bottom: 2px solid var(--sumi-line);
+            transition: background 0.5s;
+        }
+        #release-event-panel.active {
+            background: #ffeaea;
+            border-bottom-color: #ff4444;
+            animation: enjo-bg 3s ease-in-out infinite;
+        }
+        @keyframes enjo-bg { 0%,100%{ background: #ffeaea; } 50%{ background: #ffdada; } }
+        
+        .release-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .release-fire { font-size: 24px; }
+        #release-event-panel.active .release-fire { animation: shake 0.35s infinite; }
+        @keyframes shake { 0%,100%{ transform:rotate(-8deg); } 50%{ transform:rotate(8deg); } }
+        .release-title { font-size: 14px; font-weight: bold; color: #d62828; }
+        .release-stock-name { font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+        .release-prog-bg { height: 6px; background: rgba(200,50,50,0.12); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+        .release-prog-fill { height: 100%; background: linear-gradient(90deg, #d62828 0%, #ff6655 100%); border-radius: 3px; transition: width 1s linear; }
+        .release-footer { display: flex; justify-content: space-between; align-items: center; }
+        .release-timer { font-weight: bold; color: #d62828; }
+
+        /* === チャットログ拡張 === */
+        .log-entry { display: flex; gap: 8px; align-items: flex-start; }
+        .log-ico { font-size: 18px; line-height: 1.4; }
+        .log-body { flex: 1; }
+        .log-text { font-size: 14px; line-height: 1.4; }
+        .log-subtext { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+        /* === bot設定用 === */
+        .bot-setting-item { display: flex; flex-direction: column; gap: 5px; }
+        .bot-setting-item label { font-size: 12px; font-weight: bold; color: var(--text-sub); }
+        .control-select {
+            padding: 8px 12px;
+            border: 2px solid var(--sumi-line);
+            border-radius: 8px;
+            background: white;
+            font-weight: bold;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        /* === 特選銘柄用 === */
+        .featured-stocks-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px; }
+        .featured-stock-card {
+            background: white; border: 2px solid var(--sumi-line); border-radius: 12px;
+            padding: 12px; text-align: center; box-shadow: 0 4px 0 var(--sumi-line); transition: all 0.2s;
+        }
+        .featured-stock-card.cant-afford {
+            opacity: 0.6; background: #f5f5f5;
+        }
+
+        /* === botモードボタン === */
+        .bot-mode-btn-group { display: flex; gap: 5px; }
+        .bot-mode-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            background: white;
+            color: var(--text-sub);
+            border: 2px solid var(--sumi-line);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .bot-mode-btn.active {
+            background: var(--kin-pale); color: var(--kin); border-color: var(--kin); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <header>
+            <div style="font-weight: bold; font-size: 22px; color: var(--kin); letter-spacing: 1px;">精霊クロス伝説</div>
+            
+            <div class="resource-bar" style="flex: 1; justify-content: center;">
+                <div class="resource-item">
+                    <span style="font-size: 10px; color: var(--text-sub);">💴 買付余力(現金)</span>
+                    <span style="font-size: 16px;">¥<span id="ui-balance">0</span></span>
+                </div>
+                <div class="resource-item" style="color: #d62828;">
+                    <span style="font-size: 10px;">🔒 資金拘束中</span>
+                    <span style="font-size: 16px;">¥<span id="ui-locked">0</span></span>
+                </div>
+                <div class="resource-item" style="color: #22a06b;">
+                    <span style="font-size: 10px;">🛡️ 信用余力(確保枠)</span>
+                    <span style="font-size: 16px;">¥<span id="ui-credit">0</span></span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="resource-item" style="background: var(--kin-pale); border-color: var(--kin); flex-direction: row; align-items: center; padding: 10px 16px;">
+                    <span style="font-size: 13px;">🌸 ゲーム内: <span id="ui-month" style="font-size: 20px; color: var(--kin);">3</span>月</span>
+                </div>
+                <div style="text-align: right; background: white; padding: 6px 15px; border-radius: 12px; border: 2px solid var(--kin-lt); box-shadow: 0 2px 0 var(--sumi-line);">
+                    <div style="font-size: 10px; color: var(--kin); font-weight: bold; letter-spacing: 1px;">現在時刻</div>
+                    <div id="ui-clock" style="font-size: 26px; font-weight: bold; color: var(--text-main); font-family: monospace; line-height: 1.1;">00:00:00</div>
+                </div>
+            </div>
+        </header>
+
+        <div id="main-area">
+            
+            <!-- タブを要望通りの順序で配置 -->
+            <div id="nav-menu">
+                <!-- 新規追加タブ -->
+                <button class="nav-btn active" data-target="market">市場 (取得)</button>
+                <button class="nav-btn" data-target="credit">信用建玉 (祈祷中)</button>
+                <button class="nav-btn" data-target="hounou">現物奉納・放流</button>
+                <button class="nav-btn" data-target="life">育成・アイテム</button>
+                <button class="nav-btn" data-target="ranking">SNS</button>
+                
+                <hr style="border: 0; border-top: 1px dashed var(--sumi-line); margin: 10px 0;">
+                
+                <!-- 既存タブ (一旦保留/非表示扱い) -->
+                <button class="nav-btn" data-target="home" style="opacity: 0.5; font-size: 13px;">ホーム(旧)</button>
+                <button class="nav-btn" data-target="spirits" style="opacity: 0.5; font-size: 13px;">優待精霊</button>
+                <button class="nav-btn" data-target="gacha" style="opacity: 0.5; font-size: 13px;">封筒開封</button>
+                <button class="nav-btn" data-target="mission" style="opacity: 0.5; font-size: 13px;">作戦</button>
+                <button class="nav-btn" data-target="battle" style="opacity: 0.5; font-size: 13px;">出撃</button>
+                <button class="nav-btn" data-target="achievements" style="opacity: 0.5; font-size: 13px;">実績</button>
+                <button class="nav-btn" data-target="settings" style="opacity: 0.5; font-size: 13px;">設定</button>
+            </div>
+
+            <!-- コンテンツエリア -->
+            <div id="content-area">
+                
+                <!-- ===== 新規画面コンテナ ===== -->
+                <div id="sc-market" class="view-screen active">
+                    <div id="render-market">
+                        <!-- JSで描画 -->
+                    </div>
+                </div>
+
+                <div id="sc-credit" class="view-screen">
+                    <h2>信用建玉 (祈祷中)</h2>
+                    <div id="render-credit" class="panel" style="padding: 10px; background: transparent; border: none; box-shadow: none;">
+                        <!-- JSで描画 -->
+                    </div>
+                </div>
+
+                <div id="sc-hounou" class="view-screen">
+                    <h2>現物奉納・放流</h2>
+                    <div id="render-hounou" class="panel" style="padding: 10px; background: transparent; border: none; box-shadow: none;">
+                        <!-- JSで描画 -->
+                    </div>
+                </div>
+
+                <div id="sc-life" class="view-screen">
+                    <h2>育成・アイテム</h2>
+                    <div id="render-life" class="panel" style="padding: 10px; background: transparent; border: none; box-shadow: none;">
+                        <!-- JSで描画 -->
+                    </div>
+                </div>
+
+                <div id="sc-ranking" class="view-screen">
+                    <h2>SNS</h2>
+                    <div id="render-ranking" class="panel" style="padding: 10px; background: transparent; border: none; box-shadow: none;">
+                        <!-- JSで描画 -->
+                    </div>
+                </div>
+
+                <!-- ===== 既存画面コンテナ ===== -->
+                <!-- 1. ホーム (非アクティブに変更) -->
+                <div id="sc-home" class="view-screen">
+                    <h2>ホーム</h2>
+                    <div class="panel">
+                        <p>祈念を行って資金や在庫を調達します。</p>
+                        <button class="btn-action" id="btn-pray">祈念する</button>
+                    </div>
+                </div>
+
+                <!-- 2. 優待精霊 -->
+                <div id="sc-spirits" class="view-screen">
+                    <h2>優待精霊</h2>
+                    <div class="panel">
+                        <p>獲得した優待精霊（キャラクター）の編成・育成を行います。（開発中）</p>
+                    </div>
+                </div>
+
+                <!-- 4. 封筒開封 (ガチャ) -->
+                <div id="sc-gacha" class="view-screen">
+                    <h2>封筒開封</h2>
+                    <div class="panel">
+                        <p>封筒を開けて、新たな優待精霊やアイテムを獲得します。</p>
+                        <button class="btn-action" id="btn-open-gacha">茶封筒を開ける（封筒-1, 議決権+1）</button>
+                    </div>
+                </div>
+
+                <!-- 5. 作戦（ミッション） -->
+                <div id="sc-mission" class="view-screen">
+                    <h2>作戦（ミッション）</h2>
+                    <div class="panel">
+                        <p>デイリーミッションや期間限定ミッションを受注・報告します。（開発中）</p>
+                    </div>
+                </div>
+
+                <!-- 6. 出撃 (バトル) -->
+                <div id="sc-battle" class="view-screen">
+                    <h2>出撃</h2>
+                    <div class="panel">
+                        <p>信用在庫を消費してマップを攻略します。（開発中）</p>
+                    </div>
+                </div>
+
+                <!-- 7. 実績 -->
+                <div id="sc-achievements" class="view-screen">
+                    <h2>実績</h2>
+                    <div class="panel">
+                        <h3>現在の統計データ</h3>
+                        <br>
+                        <ul style="line-height: 1.8; list-style-type: square; margin-left: 20px;">
+                            <li>祈念した回数: <span id="ui-stat-pray">0</span> 回</li>
+                            <li>ガチャを引いた回数: <span id="ui-stat-gacha">0</span> 回</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 8. 設定画面 -->
+                <div id="sc-settings" class="view-screen">
+                    <h2>設定画面</h2>
+                    <div class="panel">
+                        <p>音量調整やデータ引き継ぎなどの設定を行います。（開発中）</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- チャット・ログ -->
+            <div id="chat-area">
+                <div id="release-event-panel">
+                    <!-- JSで描画 -->
+                </div>
+                <div class="chat-header">全体ログ</div>
+                <div class="chat-messages" id="ui-log">
+                    <!-- JSで描画 -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== JS（ロジック） ===== -->
+    <script>
+        // ==========================================
+        // 1. マスターデータ
+        // ==========================================
+        const STOCKS = [
+            { code: '4661', name: 'オリエンタル鼠', yield: 'パークチケット', month: 3, cost: 500000, value: 10000, type: 'travel', ico: '🎟️' },
+            { code: '9843', name: 'ニトール', yield: '買物割引券', month: 2, cost: 200000, value: 6000, type: 'other', ico: '🛏️' },
+            { code: '8267', name: 'アイオン', yield: 'オーナーズC', month: 2, cost: 350000, value: 7000, type: 'other', ico: '💳' },
+            { code: '7962', name: 'クイーンジム', yield: 'ファイルセット', month: 6, cost: 100000, value: 2000, type: 'other', ico: '📁' },
+            { code: '2702', name: 'マクドナル', yield: 'バーガー券', month: 6, cost: 600000, value: 6000, type: 'food', ico: '🍔' },
+            { code: '2914', name: '憎いよJT', yield: 'カップ麺詰合', month: 12, cost: 300000, value: 3000, type: 'food', ico: '🍜' },
+        ];
+
+        const INITIAL_MESSAGES = [
+            { id: 1, type: 'system', ico: '🎮', text: 'サーバー接続完了。19時争奪戦に備えてください。', time: '18:50' },
+            { id: 2, type: 'system', ico: '💡', text: '本日は3月権利日です。3月銘柄の「奉納」を忘れずに！', time: '18:51' },
+        ];
+
+        // ==========================================
+        // 2. ゲームステート (状態管理)
+        // ==========================================
+        const state = {
+            // test2.html ベースのゲームサイクルデータ
+            activeTab: 'market',
+            currentMonth: 3,
+            balance: 1000000000,
+            creditPositions: [], // { stockCode, count }
+            spotPositions: [],   // { stockCode, count }
+            inventory: [],       // { stockCode, count }
+            family: { status: '独身', children: 0, accounts: 1, botAccuracy: 10 },
+            affection: 0,
+            botSettings: { isActive: false, targetRange: 'all', minYield: 1.0 },
+            releaseEvent: null,
+            chatLogs: [...INITIAL_MESSAGES],
+
+            // 古いアクションとの互換性用（徐々に廃止）
+            resources: { envelopes: 10, votingRights: 0 },
+            statistics: { prayCount: 0, gachaCount: 0 }
+        };
+        
+        // 派生ステータス計算
+        function calcDerivedState() {
+            const lockedCost = state.spotPositions.reduce((sum, p) => {
+                const st = STOCKS.find(s => s.code === p.stockCode);
+                return sum + (st ? st.cost * p.count : 0);
+            }, 0);
+            const creditUsed = state.creditPositions.reduce((sum, p) => {
+                const st = STOCKS.find(s => s.code === p.stockCode);
+                return sum + (st ? st.cost * p.count : 0);
+            }, 0);
+            const maxCredit = (state.balance + lockedCost) * 3;
+            const availableCredit = maxCredit - creditUsed;
+            
+            return { lockedCost, availableCredit };
+        }
+
+        // ==========================================
+        // 3. アクション関数群
+        // ==========================================
+        const getDiffMonth = (target, current) => { let diff = target - current; if (diff < 0) diff += 12; return diff; };
+
+        function toggleBot() {
+            state.botSettings.isActive = !state.botSettings.isActive;
+            updateUI();
+        }
+
+        function updateBotSetting(key, value) {
+            state.botSettings[key] = (key === 'minYield') ? parseFloat(value) : value;
+            renderMarket(); // 設定変更を即時反映
+        }
+
+        function buyCredit(code) {
+            const stock = STOCKS.find(s => s.code === code);
+            const { availableCredit } = calcDerivedState();
+            if (availableCredit < stock.cost) return;
+            
+            const exist = state.creditPositions.find(p => p.stockCode === code);
+            if (exist) exist.count += 1;
+            else state.creditPositions.push({ stockCode: code, count: 1 });
+            
+            addChatLog({ type: 'success', ico: '💼', text: `${stock.name} を信用枠で確保しました。` });
+            updateUI();
+        }
+
+        function changeQty(type, index, delta, max) {
+            const el = document.getElementById(`qty-${type}-${index}`);
+            if (!el) return;
+            let current = parseInt(el.innerText);
+            let next = current + delta;
+            if (next < 1) next = 1;
+            if (next > max) next = max;
+            el.innerText = next;
+        }
+
+        function setMaxQty(type, index, max) {
+            const el = document.getElementById(`qty-${type}-${index}`);
+            if (el) el.innerText = max;
+        }
+
+        function executeGenbiki(index) {
+            const item = state.creditPositions[index];
+            const stock = STOCKS.find(s => s.code === item.stockCode);
+            const qtyEl = document.getElementById(`qty-credit-${index}`);
+            const qty = qtyEl ? parseInt(qtyEl.innerText) : 1;
+            
+            if (qty > item.count || state.balance < stock.cost * qty) return;
+            
+            state.balance -= stock.cost * qty;
+            item.count -= qty;
+            if (item.count <= 0) state.creditPositions.splice(index, 1);
+            
+            const exist = state.spotPositions.find(p => p.stockCode === stock.code);
+            if (exist) exist.count += qty;
+            else state.spotPositions.push({ stockCode: stock.code, count: qty });
+            
+            addChatLog({ type: 'system', ico: '🏦', text: `${stock.name} x${qty} を現引きしました。(資金拘束)` });
+            updateUI();
+        }
+
+        function cancelCredit(index) {
+            const item = state.creditPositions[index];
+            const qtyEl = document.getElementById(`qty-credit-${index}`);
+            const qty = qtyEl ? parseInt(qtyEl.innerText) : 1;
+
+            item.count -= qty;
+            if (item.count <= 0) state.creditPositions.splice(index, 1);
+            addChatLog({ type: 'system', ico: '💨', text: `信用建玉を ${qty}口 取り消しました。` });
+            updateUI();
+        }
+
+        function executeHounou(index, isSpecial = false) {
+            if (isSpecial && !confirm("特殊アイテムを消費して無理やり奉納しますか？(※モック)")) return;
+
+            const item = state.spotPositions[index];
+            const stock = STOCKS.find(s => s.code === item.stockCode);
+            const qtyEl = document.getElementById(`qty-spot-${index}`);
+            const qty = qtyEl ? parseInt(qtyEl.innerText) : 1;
+            
+            state.balance += stock.cost * qty;
+            item.count -= qty;
+            if (item.count <= 0) state.spotPositions.splice(index, 1);
+            
+            const exist = state.inventory.find(p => p.stockCode === stock.code);
+            if (exist) exist.count += qty;
+            else state.inventory.push({ stockCode: stock.code, count: qty });
+            
+            addChatLog({ type: 'alert', ico: '✨', text: `【奉納完了】${stock.name} を現渡ししました！`, sub: `資金解放 / ${stock.yield} 獲得` });
+            updateUI();
+        }
+
+        function releaseSpot(index) {
+            const item = state.spotPositions[index];
+            const stock = STOCKS.find(s => s.code === item.stockCode);
+            const qtyEl = document.getElementById(`qty-spot-${index}`);
+            const qty = qtyEl ? parseInt(qtyEl.innerText) : 1;
+            
+            state.balance += stock.cost * qty;
+            item.count -= qty;
+            if (item.count <= 0) state.spotPositions.splice(index, 1);
+            
+            triggerMockRelease(stock, qty * 100);
+            addChatLog({ type: 'alert', ico: '🌊', text: `自分が ${stock.name} を ${qty*100}株 放流しました！` });
+            updateUI();
+        }
+
+        function giveGift(index) {
+            const item = state.inventory[index];
+            item.count -= 1;
+            if (item.count <= 0) state.inventory.splice(index, 1);
+            
+            state.affection = Math.min(100, state.affection + 25);
+            addChatLog({ type: 'success', ico: '🎁', text: `巫女に優待をプレゼント！好感度UP` });
+            
+            if (state.affection >= 100) {
+                if (state.family.status === '独身') {
+                    state.family.status = '既婚'; state.family.accounts = 2; state.family.botAccuracy += 10;
+                    addChatLog({ type: 'success', ico: '💍', text: `巫女と結婚しました！`, sub: `口座数: 2 / bot精度アップ` });
+                } else {
+                    state.family.children++; state.family.accounts++; state.family.botAccuracy += 5;
+                    addChatLog({ type: 'success', ico: '🍼', text: `子どもが誕生しました！`, sub: `口座数: ${state.family.accounts} / bot精度アップ` });
+                }
+                state.affection = 0;
+            }
+            updateUI();
+        }
+
+        // ==========================================
+        // 5. イベント & メインループ関連
+        // ==========================================
+        function triggerMockRelease(specificStock = null, specificAmount = null) {
+            if (state.releaseEvent) return;
+            const stock = specificStock || STOCKS[Math.floor(Math.random() * STOCKS.length)];
+            const amount = specificAmount || [100, 200, 300][Math.floor(Math.random() * 3)];
+            state.releaseEvent = { stock, amount, timeLeft: 30, hasApplied: false };
+            if (!specificStock) addChatLog({ type: 'alert', ico: '🚨', text: `ユーザー放流発生！`, sub: `[${stock.code}] ${stock.name} ${amount}株` });
+            renderReleasePanel();
+        }
+
+        function applyRelease() {
+            if (!state.releaseEvent || state.releaseEvent.hasApplied) return;
+            state.releaseEvent.hasApplied = true;
+            addChatLog({ type: 'system', ico: '⚙️', text: `放流戦にエントリーしました。` });
+            renderReleasePanel();
+        }
+
+        function handleReleaseResult() {
+            const ev = state.releaseEvent;
+            state.releaseEvent = null;
+            if (!ev.hasApplied) {
+                addChatLog({ type: 'system', ico: '💨', text: `${ev.stock.name} の放流受付終了。` });
+            } else {
+                const winRate = 30 + state.family.botAccuracy;
+                if (Math.random() * 100 < winRate) {
+                    addChatLog({ type: 'success', ico: '🎉', text: `放流戦に勝利！信用建玉を確保！`, sub: ev.stock.name });
+                    const exist = state.creditPositions.find(x => x.stockCode === ev.stock.code);
+                    if (exist) exist.count += (ev.amount/100); else state.creditPositions.push({ stockCode: ev.stock.code, count: (ev.amount/100) });
+                } else {
+                    addChatLog({ type: 'system', ico: '😭', text: `落選...「貴重な機会を...」` });
+                }
+            }
+            updateUI();
+        }
+
+        function botTick() {
+            if (!state.botSettings.isActive) return;
+            const { availableCredit } = calcDerivedState();
+            const validStocks = STOCKS.filter(s => {
+                const y = (s.value / s.cost) * 100;
+                const mDiff = getDiffMonth(s.month, state.currentMonth);
+                if (y < state.botSettings.minYield) return false;
+                if (state.botSettings.targetRange === 'thisMonth' && mDiff !== 0) return false;
+                if (state.botSettings.targetRange === 'nextMonth' && mDiff > 1) return false;
+                return s.cost <= availableCredit;
+            });
+
+            const catchRate = 0.1 + (state.family.botAccuracy / 100);
+            if (validStocks.length > 0 && Math.random() < catchRate) {
+                const s = validStocks[Math.floor(Math.random() * validStocks.length)];
+                buyCredit(s.code); // buyCredit内でログ出力とUI更新
+            }
+        }
+
+        // ==========================================
+        // 4. 描画 (Render) 関数群
+        // ==========================================
+        function renderMarket() {
+            const container = document.getElementById('render-market');
+            if (!container) return;
+            const { availableCredit } = calcDerivedState();
+            const sortedStocks = [...STOCKS].sort((a,b) => getDiffMonth(a.month, state.currentMonth) - getDiffMonth(b.month, state.currentMonth));
+            const featuredStocks = sortedStocks.slice(0, 3);
+            
+            let html = `
+                <h2>市場 (取得)</h2>
+                <div class="panel" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3 style="margin:0; border:none; padding:0; color:var(--kin); font-size: 18px;">🤖 bot自動収集モード</h3>
+                        <button onclick="toggleBot()" style="padding:8px 20px; border-radius:20px; border:none; font-weight:bold; cursor:pointer; background:${state.botSettings.isActive ? '#22a06b' : '#ccc'}; color:#fff; box-shadow: 0 3px 0 ${state.botSettings.isActive ? '#1a7a50' : '#999'};">
+                            ${state.botSettings.isActive ? '稼働中 ON' : '停止中 OFF'}
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 20px;">
+                        <div class="bot-setting-item" style="flex: 1;">
+                            <label>対象月</label>
+                            <div class="bot-mode-btn-group">
+                                <button class="bot-mode-btn ${state.botSettings.targetRange==='thisMonth'?'active':''}" onclick="updateBotSetting('targetRange', 'thisMonth')">今月のみ (${state.currentMonth}月)</button>
+                                <button class="bot-mode-btn ${state.botSettings.targetRange==='nextMonth'?'active':''}" onclick="updateBotSetting('targetRange', 'nextMonth')">来月まで</button>
+                                <button class="bot-mode-btn ${state.botSettings.targetRange==='all'?'active':''}" onclick="updateBotSetting('targetRange', 'all')">全月対象</button>
+                            </div>
+                        </div>
+                        <div class="bot-setting-item" style="flex: 1;">
+                            <label>最低利回り</label>
+                            <div class="bot-mode-btn-group">
+                                <button class="bot-mode-btn ${state.botSettings.minYield===0?'active':''}" onclick="updateBotSetting('minYield', 0)">指定なし</button>
+                                <button class="bot-mode-btn ${state.botSettings.minYield===1.0?'active':''}" onclick="updateBotSetting('minYield', 1.0)">1.0%以上</button>
+                                <button class="bot-mode-btn ${state.botSettings.minYield===2.0?'active':''}" onclick="updateBotSetting('minYield', 2.0)">2.0%以上</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 style="margin-bottom: 15px;">✨ 特選銘柄 (手動確保)</h2>
+                <div class="featured-stocks-grid">
+                    ${featuredStocks.map(stock => {
+                        const yPct = ((stock.value / stock.cost)*100).toFixed(1);
+                        const canBuy = availableCredit >= stock.cost;
+                        return `
+                            <div class="featured-stock-card ${!canBuy ? 'cant-afford' : ''}">
+                                <div style="font-size: 32px; margin-bottom: 4px;">${stock.ico}</div>
+                                <div class="stock-name" style="font-size: 14px; min-height: 24px;">${stock.name}</div>
+                                <div style="font-size: 11px; color: var(--text-sub); font-weight: bold; margin-bottom: 8px;">
+                                    利回り: <span style="color:${yPct >= 2.0 ? 'var(--kin)' : '#22a06b'}; font-size:18px;">${yPct}%</span>
+                                </div>
+                                <button class="stock-buy-btn" onclick="buyCredit('${stock.code}')" ${!canBuy ? 'disabled' : ''} style="width: 100%;">
+                                    <span class="sbb-price">¥${Math.floor(stock.cost/10000)}万</span>
+                                    <span class="sbb-label">${canBuy ? '手動確保' : '余力不足'}</span>
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function renderCredit() {
+            const container = document.getElementById('render-credit');
+            if (!container) return;
+            let html = `
+                <div class="stock-list-wrap">
+                    ${state.creditPositions.length === 0 ? `<div style="text-align:center; padding:30px; color:var(--text-sub);">確保済みの信用建玉はありません。</div>` : ''}
+                    ${state.creditPositions.map((item, idx) => {
+                        const stock = STOCKS.find(s => s.code === item.stockCode);
+                        return `
+                            <div class="stock-card">
+                                <div class="stock-left">
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                        <span class="stock-code">[${stock.code}] ${stock.ico}</span>
+                                        <span class="badge">合計 x${item.count}</span>
+                                    </div>
+                                    <div class="stock-name">${stock.name}</div>
+                                    <div class="qty-control">
+                                        <button onclick="changeQty('credit', ${idx}, -1, ${item.count})" class="btn-small">-</button>
+                                        <span id="qty-credit-${idx}" style="width:30px; text-align:center; font-weight:bold;">${item.count}</span>
+                                        <button onclick="changeQty('credit', ${idx}, 1, ${item.count})" class="btn-small">+</button>
+                                        <button onclick="setMaxQty('credit', ${idx}, ${item.count})" class="btn-small" style="color:var(--kin);">全口</button>
+                                    </div>
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:8px; width:100px;">
+                                    <button onclick="executeGenbiki(${idx})" class="stock-buy-btn" style="min-width:auto;">💰 現引き</button>
+                                    <button onclick="cancelCredit(${idx})" class="btn-small">取消 (返済)</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function renderHounou() {
+            const container = document.getElementById('render-hounou');
+            if (!container) return;
+            let html = `
+                <div class="stock-list-wrap">
+                    ${state.spotPositions.length === 0 ? `<div style="text-align:center; padding:30px; color:var(--text-sub);">現物建玉がありません。信用建玉から現引きしてください。</div>` : ''}
+                    ${state.spotPositions.map((item, idx) => {
+                        const stock = STOCKS.find(s => s.code === item.stockCode);
+                        const isToday = stock.month === state.currentMonth;
+                        return `
+                            <div class="stock-card ${isToday ? 'today' : ''}">
+                                <div class="stock-left">
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                        <span class="stock-code">[${stock.code}] ${stock.ico}</span>
+                                        <span class="badge">現物 x${item.count}</span>
+                                    </div>
+                                    <div class="stock-name">${stock.name}</div>
+                                    <div class="qty-control">
+                                        <button onclick="changeQty('spot', ${idx}, -1, ${item.count})" class="btn-small">-</button>
+                                        <span id="qty-spot-${idx}" style="width:30px; text-align:center; font-weight:bold;">${item.count}</span>
+                                        <button onclick="changeQty('spot', ${idx}, 1, ${item.count})" class="btn-small">+</button>
+                                        <button onclick="setMaxQty('spot', ${idx}, ${item.count})" class="btn-small" style="color:var(--kin);">全口</button>
+                                    </div>
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:8px; width:100px;">
+                                    ${isToday 
+                                        ? `<button onclick="executeHounou(${idx}, false)" class="stock-buy-btn" style="min-width:auto; background:#ff8c00; box-shadow:0 3px 0 #cc7000;">✨ 奉納する</button>` 
+                                        : `<button onclick="executeHounou(${idx}, true)" class="stock-buy-btn" style="min-width:auto; background:var(--ao-lt); box-shadow:0 3px 0 var(--ao);">🔮 特殊奉納</button>`}
+                                    <button onclick="releaseSpot(${idx})" class="btn-small" style="color:#d62828;">🌊 放流する</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function renderLife() {
+            const container = document.getElementById('render-life');
+            if (!container) return;
+            let html = `
+                <div style="display:flex; gap:15px; height:100%;">
+                    <div style="width:200px; display:flex; flex-direction:column; border:2px solid var(--sumi-line); border-radius:8px; overflow:hidden; background:white;">
+                        <div style="height:140px; background:var(--kin-pale); display:flex; align-items:center; justify-content:center; font-size:80px; position:relative;">
+                            ${state.family.status === '独身' ? '👩🏻‍💼' : '👰🏻‍♀️'}
+                            ${state.family.children > 0 ? `<div style="position:absolute; bottom:10px; right:10px; font-size:30px;">👶x${state.family.children}</div>` : ''}
+                        </div>
+                        <div style="padding:15px;">
+                            <div style="font-weight:bold; margin-bottom:10px;">親愛度ステータス</div>
+                            <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--kin); margin-bottom:5px; font-size:12px;">
+                                <span>好感度</span><span>${state.affection} / 100</span>
+                            </div>
+                            <div style="height:8px; background:var(--sumi-line); border-radius:4px; margin-bottom:15px; overflow:hidden;">
+                                <div style="height:100%; width:${state.affection}%; background:var(--kin);"></div>
+                            </div>
+                            <div style="font-size:12px; color:var(--text-sub); line-height:1.6;">
+                                ステータス: <strong style="color:var(--text-main);">${state.family.status}</strong><br/>
+                                bot勝率補正: <strong style="color:#22a06b;">+${state.family.botAccuracy}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="flex:1; background:white; border:2px solid var(--sumi-line); border-radius:8px; display:flex; flex-direction:column; overflow:hidden;">
+                        <div style="padding:10px 15px; background:var(--sumi-lt); border-bottom:2px solid var(--sumi-line); font-weight:bold;">🎁 獲得済優待 (アイテム)</div>
+                        <div style="padding:15px; overflow-y:auto; flex:1; display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; align-content:start;">
+                            ${state.inventory.length === 0 ? `<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text-sub);">アイテムがありません。</div>` : ''}
+                            ${state.inventory.map((item, idx) => {
+                                const stock = STOCKS.find(s => s.code === item.stockCode);
+                                return `
+                                    <div style="border:2px solid var(--sumi-line); border-top:4px solid var(--kin-lt); border-radius:8px; padding:15px 5px; text-align:center; background:var(--sumi);">
+                                        <div style="font-size:32px; margin-bottom:8px;">${stock.ico}</div>
+                                        <div style="font-size:12px; font-weight:bold; color:var(--text-main);">${stock.yield}</div>
+                                        <div style="font-size:12px; color:var(--kin); margin:8px 0; font-weight:bold;">所持: ${item.count}</div>
+                                        <button onclick="giveGift(${idx})" class="stock-buy-btn" style="min-width:auto; padding:6px; width:90%; margin:0 auto; font-size:12px;">貢ぐ ♡</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function renderRanking() {
+            const container = document.getElementById('render-ranking');
+            if (!container) return;
+            container.innerHTML = `
+                <div style="padding:40px; text-align:center;">
+                    <div style="font-size:64px; margin-bottom:20px;">🏆</div>
+                    <div style="font-size:18px; font-weight:bold; color:var(--kin); margin-bottom:20px;">SNSで拡散して承認欲求を満たそう！</div>
+                    <button class="btn-action" style="background:#1DA1F2; box-shadow:0 4px 0 #0d8bd9; border-radius:30px; padding:15px 30px;">「今期利回り15.2%！」をポスト</button>
+                </div>
+            `;
+        }
+
+        function renderReleasePanel() {
+            const panel = document.getElementById('release-event-panel');
+            if (!panel) return;
+
+            if (!state.releaseEvent) {
+                panel.className = '';
+                panel.innerHTML = `
+                    <div class="release-header">
+                        <span class="release-fire" style="filter:grayscale(1)">💤</span>
+                        <span class="release-title" style="color:var(--text-sub)">現在、放流はありません</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-sub)">19時バッチに向けて準備中...</div>
+                `;
+                return;
+            }
+
+            const ev = state.releaseEvent;
+            panel.className = 'active';
+            panel.innerHTML = `
+                <div class="release-header">
+                    <span class="release-fire">🚨</span>
+                    <span class="release-title">ユーザー放流発生！</span>
+                </div>
+                <div class="release-stock-name">[${ev.stock.code}] ${ev.stock.name} (${ev.amount}株)</div>
+                <div class="release-prog-bg"><div class="release-prog-fill" style="width: ${(ev.timeLeft / 30) * 100}%"></div></div>
+                <div class="release-footer">
+                    <span class="release-timer">残り ${ev.timeLeft}秒</span>
+                    <button class="btn-action" onclick="applyRelease()" ${ev.hasApplied ? 'disabled' : ''} style="padding: 8px 16px; margin:0; font-size:14px;">
+                        ${ev.hasApplied ? '申請済' : '即時申請！'}
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderChat() {
+            const logArea = document.getElementById('ui-log');
+            if (!logArea) return;
+            logArea.innerHTML = state.chatLogs.map(log => {
+                return `
+                    <div class="log-entry panel ${log.type || 'system'}">
+                        <div class="log-ico">${log.ico || '💬'}</div>
+                        <div class="log-body">
+                            <div class="log-text">${log.text}</div>
+                            ${log.sub ? `<div class="log-subtext">${log.sub}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addChatLog(log) {
+            state.chatLogs.unshift(log); // 先頭に追加
+            if (state.chatLogs.length > 50) state.chatLogs.pop(); // 50件以上は古いものから削除
+            renderChat();
+        }
+
+        function updateUI() {
+            const { lockedCost, availableCredit } = calcDerivedState();
+            
+            // 新ヘッダーの更新
+            document.getElementById('ui-balance').innerText = state.balance.toLocaleString();
+            document.getElementById('ui-locked').innerText = lockedCost.toLocaleString();
+            document.getElementById('ui-credit').innerText = availableCredit.toLocaleString();
+            document.getElementById('ui-month').innerText = state.currentMonth;
+            
+            document.getElementById('ui-stat-pray').innerText = state.statistics.prayCount;
+            document.getElementById('ui-stat-gacha').innerText = state.statistics.gachaCount;
+
+            // アクティブタブの再描画
+            if(state.activeTab === 'market') renderMarket();
+            else if(state.activeTab === 'credit') renderCredit();
+            else if(state.activeTab === 'hounou') renderHounou();
+            else if(state.activeTab === 'life') renderLife();
+            else if(state.activeTab === 'ranking') renderRanking();
+
+            renderReleasePanel();
+            renderChat();
+        }
+
+        // タブ切り替えロジック
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+
+                const tabId = e.target.getAttribute('data-target');
+                const targetId = 'sc-' + tabId;
+                state.activeTab = tabId;
+
+                document.querySelectorAll('.view-screen').forEach(screen => {
+                    screen.classList.remove('active');
+                });
+                document.getElementById(targetId).classList.add('active');
+                
+                // 画面切り替え時に描画を更新
+                updateUI();
+            });
+        });
+
+        // アクション
+        document.getElementById('btn-pray').addEventListener('click', () => {
+            state.balance += 100000; // テスト用に多めに
+            state.statistics.prayCount += 1;
+            addChatLog({ico: '✨', text: "祈念完了：資金と在庫を獲得しました！"});
+            updateUI();
+        });
+
+        document.getElementById('btn-open-gacha').addEventListener('click', () => {
+            if (state.resources.envelopes >= 1) {
+                state.resources.envelopes -= 1;
+                state.resources.votingRights += 1;
+                state.statistics.gachaCount += 1;
+                addChatLog({ico: '✉️', text: "茶封筒を開封！議決権を獲得。"});
+                updateUI();
+            } else {
+                addChatLog({ico: '⚠️', text: "封筒が足りません。"});
+            }
+        });
+
+        // ==========================================
+        // 6. 初期化 & メインループ
+        // ==========================================
+        setInterval(() => {
+            // 時計の更新
+            const clockEl = document.getElementById('ui-clock');
+            if (clockEl) {
+                clockEl.innerText = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+            }
+
+            // 放流タイマー
+            if (state.releaseEvent && state.releaseEvent.timeLeft > 0) {
+                state.releaseEvent.timeLeft--;
+                if (state.releaseEvent.timeLeft <= 0) {
+                    handleReleaseResult();
+                } else {
+                    renderReleasePanel();
+                }
+            }
+
+            // botは5秒に1回
+            if (new Date().getSeconds() % 5 === 0) {
+                botTick();
+            }
+        }, 1000);
+
+        updateUI();
+    </script>
+</body>
+</html>
