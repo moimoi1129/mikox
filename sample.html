@@ -55,20 +55,54 @@
             justify-content: space-between;
         }
 
-        .resource-bar { display: flex; gap: 15px; }
-        .resource-item {
-            background: white;
-            border: 2px solid var(--kin-lt);
-            border-radius: 20px;
-            padding: 6px 16px;
+        .game-title {
             font-weight: bold;
+            font-size: 22px;
+            color: var(--kin);
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        .header-info-group {
+            display: flex;
+            align-items: flex-start; /* Align items to top for consistent baseline */
+            gap: 15px;
+        }
+
+        .header-info-box {
+            background: white;
+            border: 2px solid var(--sumi-line);
+            border-radius: 8px;
+            padding: 8px 12px;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 2px;
-            box-shadow: 0 2px 0 var(--sumi-line); /* プチ立体感 */
+            box-shadow: 0 2px 0 var(--sumi-line);
+            font-weight: bold;
+            line-height: 1.2;
         }
 
+        .header-info-box .label {
+            font-size: 10px;
+            color: var(--text-sub);
+            margin-bottom: 2px;
+        }
+
+        .header-info-box .value {
+            font-size: 16px;
+            color: var(--text-main);
+        }
+
+        .header-info-box.locked .value { color: #d62828; }
+        .header-info-box.credit .value { color: #22a06b; }
+
+        .header-info-box.month { background: var(--kin-pale); border-color: var(--kin); flex-direction: row; align-items: center; gap: 8px; }
+        .header-info-box.month .label { font-size: 13px; color: var(--kin); margin-bottom: 0; white-space: nowrap; }
+        .header-info-box.month .value { font-size: 20px; color: var(--kin); }
+
+        .header-info-box.clock { text-align: right; font-family: monospace; }
+        .header-info-box.clock .label { font-size: 10px; color: var(--kin); letter-spacing: 1px; margin-bottom: 2px; }
+        .header-info-box.clock .value { font-size: 26px; color: var(--text-main); }
         /* === メインレイアウト === */
         #main-area {
             display: flex;
@@ -297,30 +331,31 @@
     <div id="game-container">
         
         <header>
-            <div style="font-weight: bold; font-size: 22px; color: var(--kin); letter-spacing: 1px;">精霊クロス伝説</div>
+            <div class="game-title">精霊クロス伝説</div>
             
-            <div class="resource-bar" style="flex: 1; justify-content: center;">
-                <div class="resource-item">
-                    <span style="font-size: 10px; color: var(--text-sub);">💴 買付余力(現金)</span>
-                    <span style="font-size: 16px;">¥<span id="ui-balance">0</span></span>
+            <div class="header-info-group" style="flex: 1; justify-content: center;">
+                <div class="header-info-box">
+                    <span class="label">💴 買付余力</span>
+                    <span class="value">¥<span id="ui-balance">0</span></span>
                 </div>
-                <div class="resource-item" style="color: #d62828;">
-                    <span style="font-size: 10px;">🔒 資金拘束中</span>
-                    <span style="font-size: 16px;">¥<span id="ui-locked">0</span></span>
+                <div class="header-info-box locked">
+                    <span class="label">🔒 資金拘束中</span>
+                    <span class="value">¥<span id="ui-locked">0</span></span>
                 </div>
-                <div class="resource-item" style="color: #22a06b;">
-                    <span style="font-size: 10px;">🛡️ 信用余力(確保枠)</span>
-                    <span style="font-size: 16px;">¥<span id="ui-credit">0</span></span>
+                <div class="header-info-box credit">
+                    <span class="label">🛡️ 信用余力(確保枠)</span>
+                    <span class="value">¥<span id="ui-credit">0</span></span>
                 </div>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="resource-item" style="background: var(--kin-pale); border-color: var(--kin); flex-direction: row; align-items: center; padding: 10px 16px;">
-                    <span style="font-size: 13px;">🌸 ゲーム内: <span id="ui-month" style="font-size: 20px; color: var(--kin);">3</span>月</span>
+            <div class="header-info-group">
+                <div class="header-info-box month">
+                    <span class="label">🌸 ゲーム内:</span>
+                    <span class="value"><span id="ui-month">3</span>月</span>
                 </div>
-                <div style="text-align: right; background: white; padding: 6px 15px; border-radius: 12px; border: 2px solid var(--kin-lt); box-shadow: 0 2px 0 var(--sumi-line);">
-                    <div style="font-size: 10px; color: var(--kin); font-weight: bold; letter-spacing: 1px;">現在時刻</div>
-                    <div id="ui-clock" style="font-size: 26px; font-weight: bold; color: var(--text-main); font-family: monospace; line-height: 1.1;">00:00:00</div>
+                <div class="header-info-box clock">
+                    <span class="label">現在時刻</span>
+                    <span class="value" id="ui-clock">00:00:00</span>
                 </div>
             </div>
         </header>
@@ -733,7 +768,7 @@
                         <div class="bot-setting-item" style="flex: 1;">
                             <label>対象月</label>
                             <div class="bot-mode-btn-group">
-                                <button class="bot-mode-btn ${state.botSettings.targetRange==='thisMonth'?'active':''}" onclick="updateBotSetting('targetRange', 'thisMonth')">今月のみ (${state.currentMonth}月)</button>
+                                <button class="bot-mode-btn ${state.botSettings.targetRange==='thisMonth'?'active':''}" onclick="updateBotSetting('targetRange', 'thisMonth')">今月のみ</button>
                                 <button class="bot-mode-btn ${state.botSettings.targetRange==='nextMonth'?'active':''}" onclick="updateBotSetting('targetRange', 'nextMonth')">来月まで</button>
                                 <button class="bot-mode-btn ${state.botSettings.targetRange==='all'?'active':''}" onclick="updateBotSetting('targetRange', 'all')">全月対象</button>
                             </div>
@@ -942,9 +977,9 @@
         function renderChat() {
             const logArea = document.getElementById('ui-log');
             if (!logArea) return;
-            logArea.innerHTML = state.chatLogs.map(log => {
+            logArea.innerHTML = state.chatLogs.map((log, index) => {
                 return `
-                    <div class="log-entry panel ${log.type || 'system'}">
+                    <div class="log-entry ${log.type || 'system'}">
                         <div class="log-ico">${log.ico || '💬'}</div>
                         <div class="log-body">
                             <div class="log-text">${log.text}</div>
